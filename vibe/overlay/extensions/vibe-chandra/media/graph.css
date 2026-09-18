@@ -1,0 +1,924 @@
+/* SPDX-License-Identifier: MIT */
+
+/*
+ * Every colour below resolves to a VS Code theme variable first. The fallback table is the ONLY place with
+ * literal colours; it serves the plain-browser harness (and any theme that leaves a variable undefined).
+ * light-dark() follows the host: VS Code's body class, an explicit data-theme, else prefers-color-scheme.
+ */
+.vc-root {
+	color-scheme: light dark;
+	--fb-bg: light-dark(#ffffff, #1f1f1f);
+	--fb-fg: light-dark(#3b3b3b, #cccccc);
+	--fb-muted: light-dark(#6c6c6c, #9d9d9d);
+	--fb-widget: light-dark(#f8f8f8, #252526);
+	--fb-border: light-dark(#d0d0d0, #3c3c3c);
+	--fb-hover: light-dark(#e9e9e9, #2f3133);
+	--fb-input: light-dark(#ffffff, #313131);
+	--fb-accent: light-dark(#005fb8, #3794ff);
+	--fb-green: light-dark(#2f8f46, #73c991);
+	--fb-yellow: light-dark(#a87900, #d7a531);
+	--fb-blue: light-dark(#1a78c9, #4fa6f0);
+	--fb-red: light-dark(#cf2f2f, #f2665f);
+	--fb-purple: light-dark(#7c4ddb, #b48cf2);
+	--fb-amber: light-dark(#b15e00, #e2914a);
+	--fb-shadow: light-dark(rgba(0, 0, 0, .16), rgba(0, 0, 0, .5));
+}
+
+.vc-root[data-theme="light"],
+body.vscode-light .vc-root,
+body.vscode-high-contrast-light .vc-root {
+	color-scheme: light;
+}
+
+.vc-root[data-theme="dark"],
+body.vscode-dark .vc-root,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .vc-root {
+	color-scheme: dark;
+}
+
+.vc-root {
+	--vc-bg: var(--vscode-editor-background, var(--fb-bg));
+	--vc-fg: var(--vscode-editor-foreground, var(--fb-fg));
+	--vc-muted: var(--vscode-descriptionForeground, var(--fb-muted));
+	--vc-widget: var(--vscode-editorWidget-background, var(--fb-widget));
+	--vc-border: var(--vscode-editorWidget-border, var(--fb-border));
+	--vc-hover: var(--vscode-list-hoverBackground, var(--fb-hover));
+	--vc-input-bg: var(--vscode-input-background, var(--fb-input));
+	--vc-input-border: var(--vscode-input-border, var(--vc-border));
+	--vc-accent: var(--vscode-focusBorder, var(--fb-accent));
+	--vc-link: var(--vscode-textLink-foreground, var(--fb-accent));
+	--vc-shadow: var(--vscode-widget-shadow, var(--fb-shadow));
+	--vc-s-solid: var(--vscode-charts-green, var(--fb-green));
+	--vc-s-preliminary: var(--vscode-charts-yellow, var(--fb-yellow));
+	--vc-s-hypothesis: var(--vscode-charts-blue, var(--fb-blue));
+	--vc-s-blocking: var(--vscode-charts-red, var(--fb-red));
+	--vc-s-future: var(--vc-muted);
+	--vc-s-inactive: var(--vscode-disabledForeground, var(--vc-muted));
+	--vc-frontier: var(--vscode-charts-purple, var(--fb-purple));
+	--vc-loop: var(--vscode-charts-orange, var(--fb-amber));
+	--vc-edge: color-mix(in srgb, var(--vc-muted) 62%, var(--vc-bg));
+	--vc-edge-strong: var(--vc-fg);
+	--vc-node-bg: var(--vc-widget);
+	--vc-font: var(--vscode-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
+	--vc-mono: var(--vscode-editor-font-family, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
+
+	position: relative;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: var(--vc-bg);
+	color: var(--vc-fg);
+	font: 12px/1.4 var(--vc-font);
+	outline: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.vc-root *,
+.vc-root *::before {
+	box-sizing: border-box;
+}
+
+/* --- canvas ------------------------------------------------------------------------------------------ */
+
+.vc-svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;
+	cursor: grab;
+	touch-action: none;
+}
+
+.vc-svg.vc-dragging {
+	cursor: grabbing;
+}
+
+.vc-root.vc-picking .vc-svg,
+.vc-root.vc-picking .vc-node {
+	cursor: crosshair;
+}
+
+.vc-seg {
+	fill: none;
+	stroke: var(--vc-edge);
+	stroke-width: 1.25;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.vc-seg-stem {
+	stroke-width: 1.6;
+}
+
+.vc-seg-loop {
+	stroke: var(--vc-loop);
+	stroke-dasharray: 5 4;
+	stroke-width: 1.4;
+}
+
+.vc-arrow {
+	fill: var(--vc-edge);
+	stroke: none;
+}
+
+.vc-arrow.vc-seg-loop {
+	fill: var(--vc-loop);
+}
+
+.vc-junction {
+	fill: var(--vc-bg);
+	stroke: var(--vc-edge);
+	stroke-width: 1.6;
+}
+
+.vc-seg.vc-strong {
+	stroke: var(--vc-edge-strong);
+	stroke-width: 1.7;
+}
+
+.vc-seg-loop.vc-strong {
+	stroke: var(--vc-loop);
+	stroke-width: 2;
+}
+
+.vc-arrow.vc-strong {
+	fill: var(--vc-edge-strong);
+}
+
+.vc-arrow.vc-seg-loop.vc-strong {
+	fill: var(--vc-loop);
+}
+
+.vc-junction.vc-strong {
+	stroke: var(--vc-edge-strong);
+	fill: var(--vc-edge-strong);
+}
+
+.vc-seg.vc-route {
+	stroke: var(--vc-accent);
+	stroke-width: 2.6;
+}
+
+.vc-arrow.vc-route {
+	fill: var(--vc-accent);
+}
+
+.vc-junction.vc-route {
+	stroke: var(--vc-accent);
+	fill: var(--vc-accent);
+}
+
+.vc-dim {
+	opacity: .16;
+}
+
+.vc-node {
+	cursor: pointer;
+	outline: none;
+}
+
+.vc-s-solid { --status: var(--vc-s-solid); }
+.vc-s-preliminary { --status: var(--vc-s-preliminary); }
+.vc-s-hypothesis { --status: var(--vc-s-hypothesis); }
+.vc-s-blocking { --status: var(--vc-s-blocking); }
+.vc-s-future { --status: var(--vc-s-future); }
+.vc-s-retired,
+.vc-s-amended,
+.vc-s-unknown,
+.vc-s-ghost { --status: var(--vc-s-inactive); }
+
+.vc-card {
+	fill: color-mix(in srgb, var(--status) 7%, var(--vc-node-bg));
+	stroke: color-mix(in srgb, var(--status) 45%, var(--vc-border));
+	stroke-width: 1;
+}
+
+/* Status is never colour alone: border style, glyph shape and the status word all repeat it. */
+.vc-s-blocking .vc-card {
+	stroke: var(--status);
+	stroke-width: 2;
+}
+
+.vc-s-future .vc-card {
+	fill: var(--vc-bg);
+	stroke-dasharray: 1.5 3;
+	stroke-linecap: round;
+	stroke-width: 1.3;
+}
+
+.vc-s-retired .vc-card,
+.vc-s-amended .vc-card {
+	fill: var(--vc-bg);
+	stroke-dasharray: 7 3;
+}
+
+.vc-ghost .vc-card {
+	fill: none;
+	stroke: var(--vc-muted);
+	stroke-dasharray: 4 3;
+}
+
+.vc-bar {
+	fill: var(--status);
+}
+
+.vc-s-hypothesis .vc-bar,
+.vc-s-future .vc-bar,
+.vc-ghost .vc-bar {
+	fill: none;
+	stroke: var(--status);
+	stroke-width: 1;
+}
+
+.vc-gf {
+	fill: var(--status);
+	stroke: none;
+}
+
+.vc-gs {
+	fill: none;
+	stroke: var(--status);
+	stroke-width: 1.6;
+	stroke-linecap: round;
+}
+
+.vc-label {
+	fill: var(--vc-fg);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.vc-s-retired .vc-label,
+.vc-s-amended .vc-label {
+	text-decoration: line-through;
+	fill: var(--vc-muted);
+}
+
+.vc-ghost .vc-label {
+	fill: var(--vc-muted);
+	font-style: italic;
+	font-weight: 500;
+}
+
+.vc-sub,
+.vc-badges {
+	fill: var(--vc-muted);
+	font-size: 10.5px;
+}
+
+.vc-sub .vc-word {
+	fill: color-mix(in srgb, var(--status) 72%, var(--vc-fg));
+}
+
+.vc-badges .vc-failing {
+	fill: var(--vc-s-blocking);
+	font-weight: 700;
+}
+
+.vc-ring {
+	fill: none;
+	stroke: var(--vc-frontier);
+	stroke-width: 1.6;
+}
+
+.vc-halo {
+	fill: none;
+	stroke: none;
+	stroke-width: 2.4;
+}
+
+.vc-node:hover .vc-card {
+	stroke: var(--vc-fg);
+}
+
+.vc-node:focus-visible .vc-halo,
+.vc-node.vc-focus .vc-halo {
+	stroke: var(--vc-accent);
+}
+
+.vc-node.vc-on-route .vc-halo,
+.vc-node.vc-hit .vc-halo {
+	stroke: var(--vc-accent);
+	stroke-width: 1.6;
+}
+
+.vc-node.vc-focus .vc-card {
+	fill: color-mix(in srgb, var(--vc-accent) 14%, var(--vc-node-bg));
+}
+
+.vc-alert {
+	fill: var(--vc-s-blocking);
+	stroke: var(--vc-bg);
+	stroke-width: 1.5;
+}
+
+/* Level of detail: zoomed out one larger label replaces the two text rows; far away cards become status tiles. */
+.vc-label-far,
+.vc-root.vc-far .vc-sub,
+.vc-root.vc-far .vc-badges,
+.vc-root.vc-far .vc-label {
+	display: none;
+}
+
+.vc-root.vc-far .vc-label-far {
+	display: inline;
+	font-size: 14.5px;
+}
+
+.vc-root.vc-far .vc-glyph {
+	transform: translate(15px, 22px) scale(1.2);
+}
+
+.vc-root.vc-tiny .vc-label-far,
+.vc-root.vc-tiny .vc-glyph {
+	display: none;
+}
+
+.vc-root.vc-tiny .vc-card {
+	fill: color-mix(in srgb, var(--status) 55%, var(--vc-node-bg));
+}
+
+.vc-root.vc-tiny .vc-s-future .vc-card,
+.vc-root.vc-tiny .vc-ghost .vc-card {
+	fill: var(--vc-bg);
+	stroke-width: 3;
+}
+
+.vc-root.vc-tiny .vc-seg {
+	stroke-width: 2.4;
+}
+
+.vc-root.vc-tiny .vc-node .vc-ring {
+	stroke-width: 6;
+}
+
+/* The focused node must stay findable in the overview. */
+.vc-root.vc-far .vc-node.vc-focus .vc-halo {
+	stroke-width: 4;
+}
+
+.vc-root.vc-tiny .vc-node.vc-focus .vc-halo {
+	stroke-width: 14;
+}
+
+.vc-empty {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--vc-muted);
+	pointer-events: none;
+}
+
+/* --- chrome ------------------------------------------------------------------------------------------ */
+
+.vc-toolbar,
+.vc-legend,
+.vc-banner,
+.vc-results,
+.vc-help {
+	position: absolute;
+	background: var(--vc-widget);
+	border: 1px solid var(--vc-border);
+	border-radius: 5px;
+	box-shadow: 0 2px 8px var(--vc-shadow);
+}
+
+.vc-toolbar {
+	top: 10px;
+	left: 10px;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding: 3px;
+	max-width: calc(100% - 20px);
+}
+
+.vc-search {
+	width: 210px;
+	min-width: 60px;
+	flex: 1 1 auto;
+	height: 24px;
+	padding: 0 7px;
+	margin-right: 3px;
+	border: 1px solid var(--vc-input-border);
+	border-radius: 3px;
+	background: var(--vc-input-bg);
+	color: var(--vscode-input-foreground, var(--vc-fg));
+	font: inherit;
+	outline: none;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.vc-search::placeholder {
+	color: var(--vscode-input-placeholderForeground, var(--vc-muted));
+}
+
+.vc-search:focus {
+	border-color: var(--vc-accent);
+}
+
+.vc-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	min-width: 24px;
+	height: 24px;
+	padding: 0 5px;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	background: none;
+	color: var(--vc-fg);
+	font: inherit;
+	cursor: pointer;
+}
+
+.vc-button:hover {
+	background: var(--vscode-toolbar-hoverBackground, var(--vc-hover));
+}
+
+.vc-button:focus-visible {
+	border-color: var(--vc-accent);
+	outline: none;
+}
+
+.vc-button[aria-pressed="true"] {
+	background: color-mix(in srgb, var(--vc-accent) 22%, transparent);
+	border-color: color-mix(in srgb, var(--vc-accent) 60%, transparent);
+}
+
+.vc-button svg {
+	width: 14px;
+	height: 14px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.vc-sep {
+	width: 1px;
+	height: 16px;
+	margin: 0 3px;
+	background: var(--vc-border);
+}
+
+.vc-stats {
+	padding: 0 8px 0 5px;
+	color: var(--vc-muted);
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.vc-results {
+	top: 42px;
+	left: 10px;
+	width: 380px;
+	max-width: calc(100% - 20px);
+	max-height: 60%;
+	overflow-y: auto;
+	padding: 3px;
+	z-index: 3;
+}
+
+.vc-result {
+	display: grid;
+	grid-template-columns: 16px 1fr auto;
+	align-items: center;
+	column-gap: 6px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.vc-result[aria-selected="true"] {
+	background: var(--vscode-list-activeSelectionBackground, color-mix(in srgb, var(--vc-accent) 24%, transparent));
+	color: var(--vscode-list-activeSelectionForeground, var(--vc-fg));
+}
+
+.vc-result-main {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vc-result-main small,
+.vc-result-side {
+	color: var(--vc-muted);
+	font-size: 11px;
+}
+
+.vc-result[aria-selected="true"] small,
+.vc-result[aria-selected="true"] .vc-result-side {
+	color: inherit;
+	opacity: .8;
+}
+
+.vc-none {
+	padding: 6px 8px;
+	color: var(--vc-muted);
+}
+
+.vc-banner {
+	top: 46px;
+	left: 50%;
+	transform: translateX(-50%);
+	padding: 4px 10px;
+	border-color: color-mix(in srgb, var(--vc-accent) 60%, var(--vc-border));
+	white-space: nowrap;
+	max-width: 60%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	z-index: 2;
+}
+
+.vc-banner b {
+	font-weight: 600;
+}
+
+.vc-legend-key {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 22px;
+	padding: 0 7px 0 5px;
+	color: var(--vc-muted);
+	white-space: nowrap;
+}
+
+.vc-legend {
+	left: 10px;
+	bottom: 10px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 1px;
+	padding: 3px;
+	max-width: calc(100% - 20px);
+}
+
+.vc-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 22px;
+	padding: 0 7px 0 5px;
+	border: 1px solid transparent;
+	border-radius: 3px;
+	background: none;
+	color: var(--vc-fg);
+	font: inherit;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.vc-chip:hover {
+	background: var(--vc-hover);
+}
+
+.vc-chip:focus-visible {
+	border-color: var(--vc-accent);
+	outline: none;
+}
+
+.vc-chip[aria-pressed="true"] {
+	background: color-mix(in srgb, var(--status, var(--vc-accent)) 20%, transparent);
+	border-color: color-mix(in srgb, var(--status, var(--vc-accent)) 65%, transparent);
+}
+
+.vc-legend.vc-lensed .vc-chip[aria-pressed="false"] {
+	opacity: .55;
+}
+
+.vc-chip b {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+
+.vc-chip span {
+	color: var(--vc-muted);
+}
+
+.vc-failing-mark {
+	color: var(--vc-s-blocking);
+}
+
+.vc-icon {
+	width: 12px;
+	height: 12px;
+	flex: none;
+	overflow: visible;
+}
+
+.vc-icon-wide {
+	width: 22px;
+}
+
+.vc-key {
+	display: inline-block;
+	min-width: 16px;
+	padding: 0 4px;
+	border: 1px solid var(--vc-border);
+	border-bottom-width: 2px;
+	border-radius: 3px;
+	background: var(--vc-bg);
+	font: 10.5px/1.5 var(--vc-mono);
+	text-align: center;
+}
+
+.vc-help {
+	top: 42px;
+	left: 10px;
+	padding: 8px 12px;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 4px 10px;
+	align-items: center;
+	z-index: 3;
+}
+
+.vc-help span {
+	color: var(--vc-muted);
+}
+
+/* --- detail panel ------------------------------------------------------------------------------------ */
+
+.vc-panel {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 340px;
+	max-width: 100%;
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-sideBar-background, var(--vc-widget));
+	border-left: 1px solid var(--vscode-sideBar-border, var(--vc-border));
+	user-select: text;
+	-webkit-user-select: text;
+	z-index: 4;
+}
+
+.vc-root.vc-narrow .vc-panel {
+	top: auto;
+	left: 0;
+	width: auto;
+	height: 46%;
+	border-left: none;
+	border-top: 1px solid var(--vscode-sideBar-border, var(--vc-border));
+}
+
+.vc-root.vc-detail:not(.vc-narrow) .vc-legend,
+.vc-root.vc-detail:not(.vc-narrow) .vc-toolbar {
+	max-width: calc(100% - 360px);
+}
+
+.vc-root.vc-narrow.vc-detail .vc-legend {
+	bottom: calc(46% + 10px);
+}
+
+.vc-root.vc-narrow .vc-stats,
+.vc-root.vc-narrow .vc-chip span {
+	display: none;
+}
+
+.vc-panel-head {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 10px 8px 8px 12px;
+	border-bottom: 1px solid var(--vc-border);
+}
+
+.vc-panel-title {
+	flex: 1;
+	min-width: 0;
+}
+
+.vc-panel-title h2 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+}
+
+.vc-panel-title code {
+	display: block;
+	margin-top: 1px;
+	color: var(--vc-muted);
+	font: 11px var(--vc-mono);
+	overflow-wrap: anywhere;
+}
+
+.vc-panel-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 0 12px 16px;
+}
+
+.vc-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 10px 0 8px;
+}
+
+.vc-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 20px;
+	padding: 0 7px 0 5px;
+	border: 1px solid color-mix(in srgb, var(--status, var(--vc-muted)) 55%, transparent);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--status, var(--vc-muted)) 12%, transparent);
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+.vc-pill-frontier { --status: var(--vc-frontier); }
+.vc-pill-loop { --status: var(--vc-loop); }
+.vc-pill-pass { --status: var(--vc-s-solid); }
+.vc-pill-partial { --status: var(--vc-s-preliminary); }
+.vc-pill-fail,
+.vc-pill-crash { --status: var(--vc-s-blocking); }
+
+.vc-summary {
+	margin: 0 0 10px;
+	line-height: 1.5;
+}
+
+.vc-panel h3 {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin: 14px 0 6px;
+	padding-bottom: 3px;
+	border-bottom: 1px solid var(--vc-border);
+	color: var(--vscode-sideBarSectionHeader-foreground, var(--vc-fg));
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+}
+
+.vc-panel h3 small {
+	color: var(--vc-muted);
+	font-weight: 400;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.vc-kv {
+	display: grid;
+	grid-template-columns: 72px 1fr;
+	gap: 3px 8px;
+	margin: 0;
+}
+
+.vc-kv dt {
+	color: var(--vc-muted);
+}
+
+.vc-kv dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.vc-link {
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--vc-link);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	overflow-wrap: anywhere;
+}
+
+.vc-link:hover {
+	text-decoration: underline;
+}
+
+.vc-mono {
+	font-family: var(--vc-mono);
+	font-size: 11px;
+}
+
+.vc-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.vc-node-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	height: 22px;
+	padding: 0 8px 0 5px;
+	border: 1px solid color-mix(in srgb, var(--status) 45%, var(--vc-border));
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--status) 7%, var(--vc-node-bg));
+	color: var(--vc-fg);
+	font: inherit;
+	cursor: pointer;
+}
+
+.vc-node-chip:hover {
+	border-color: var(--vc-fg);
+}
+
+.vc-node-chip.vc-ghost {
+	border-style: dashed;
+	background: none;
+	color: var(--vc-muted);
+	font-style: italic;
+}
+
+.vc-node-chip > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.vc-step {
+	color: var(--vc-muted);
+	align-self: center;
+}
+
+.vc-muted {
+	color: var(--vc-muted);
+}
+
+.vc-list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.vc-list > li {
+	padding: 6px 0;
+	border-bottom: 1px solid color-mix(in srgb, var(--vc-border) 60%, transparent);
+}
+
+.vc-list > li:last-child {
+	border-bottom: none;
+}
+
+.vc-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.vc-row .vc-when {
+	margin-left: auto;
+	white-space: nowrap;
+	color: var(--vc-muted);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.vc-trial-text {
+	margin: 4px 0 0;
+	line-height: 1.45;
+}
+
+.vc-trial-text b {
+	color: var(--vc-muted);
+	font-weight: 600;
+}
+
+/* --- presentation ------------------------------------------------------------------------------------ */
+
+.vc-root.vc-presenting .vc-toolbar,
+.vc-root.vc-presenting .vc-legend,
+.vc-root.vc-presenting .vc-panel,
+.vc-root.vc-presenting .vc-results,
+.vc-root.vc-presenting .vc-help {
+	display: none;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.vc-seg,
+	.vc-node,
+	.vc-junction,
+	.vc-arrow {
+		transition: opacity .12s ease-out;
+	}
+}

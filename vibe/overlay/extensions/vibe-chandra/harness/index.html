@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>vibe-chandra · graph harness</title>
+	<link rel="stylesheet" href="../media/graph.css">
+	<style>
+		html,
+		body {
+			height: 100%;
+			margin: 0;
+		}
+
+		#graph {
+			position: fixed;
+			inset: 0;
+		}
+	</style>
+</head>
+
+<!--
+	Visual test page for the graph view, outside the editor. Build once with `npm run build-harness`, then open
+	index.html?fixture=self | vibe | all | cyclic | stress   (&n=500 sets the stress size)
+	&theme=light | dark forces a theme (default: the OS preference). &do=click:<id>,key:r,type:<text>,lens:<status>
+	scripts input for screenshots. View state lives in the hash: #focus=<id>&reach=upstream, #focus=<a>&route=<a>~<b>.
+-->
+
+<body>
+	<div id="graph"></div>
+	<script src="./dist/harness.js"></script>
+</body>
+
+</html>
