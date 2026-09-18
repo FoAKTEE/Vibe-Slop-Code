@@ -104,3 +104,31 @@ scaffold ─┬─ build ─┬─ branding ────────────
           │         └──────────────────────────────────────────┤
           └─ dag-model ─ dag-view ─ dag-integration ───────────┘
 ```
+
+## 6. Remote hosts over SSH (`~/.ssh/config`, like VS Code)
+
+Goal: pick a `Host` from `~/.ssh/config` (first target: `anta`) and get a remote window
+whose host shows up as its own group in the workspace bar — no per-host setup.
+
+- **Resolver.** Microsoft's Remote-SSH is licence-locked to official builds. Vibe ships
+  the MIT `open-remote-ssh` resolver (authority `ssh-remote+<host>`, its own
+  `~/.ssh/config` parser incl. ProxyJump/agent/identity files, Remote Explorer) as a
+  built-in, with the API proposals it needs allow-listed in `product.json`.
+- **Server.** A remote window needs a server whose `commit` equals the client's.
+  Microsoft's server build is licence-restricted to their products, and VSCodium
+  publishes no build of our pinned upstream version — so Vibe builds its own
+  `vibe-server` (upstream `vscode-reh-<platform>-<arch>` from the same checkout; JS
+  bundle + target Node on the Mac, the handful of native modules compiled for
+  linux-x64 against an old glibc in a container). Output is a gitignored tarball keyed
+  by commit under `vibe/.build/server/`.
+- **Install = upload, not download.** There is no public URL hosting our server, and
+  many research hosts have no outbound internet anyway. On connect, if
+  `~/.vibe-server/bin/<commit>/` is missing, the local tarball is uploaded over the
+  already-authenticated SSH connection and unpacked (VS Code's `localServerDownload`
+  behaviour). `~/.vscode-server` is never touched.
+- **Workspace bar.** `+` lists the concrete hosts of `~/.ssh/config`; picking one opens
+  an empty remote window in the frame, where Open Folder browses the remote disk.
+  The model already labels `ssh-remote+anta` as host `anta`.
+
+DAG: `package → remote-server → remote-ssh → remote-anta` (end-to-end acceptance on the
+real host: connect, open a folder, run `hostname` in the terminal, screenshot).
