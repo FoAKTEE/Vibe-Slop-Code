@@ -45,6 +45,29 @@ Every path is overridable for testing: `VIBE_ROOT`, `VIBE_CHECKOUT`, `VIBE_PATCH
 `VIBE_OVERLAY`, `VIBE_PIN`, `VIBE_TOOLCHAIN`; `VIBE_SKIP_PIN_CHECK=1` disables the
 commit check. The roundtrip is covered by `tests/test_vibe_scaffold.py`.
 
+## Package and install
+
+    vibe/scripts/package.sh [--arch arm64|x64] [--min]   # npm run gulp vscode-<platform>-<arch>
+    vibe/scripts/verify-package.sh                       # read-only checks on the result
+    vibe/scripts/install-cli.sh                          # symlink `vibe` into a bin dir
+
+`package.sh` maps the host to upstream's gulp task — `--print-task` prints the task and
+builds nothing — and takes minutes, not seconds. Upstream hard-codes the output folder
+next to the checkout, so the app lands in `vibe/VSCode-<platform>-<arch>/` (e.g.
+`VSCode-darwin-arm64/Vibe Studio Code.app`, ~1.4 GB, gitignored), with the built-in
+`vibe-chandra` extension inside and the bundled CLI at `Contents/Resources/app/bin/code`
+— the name upstream fixes on darwin.
+
+`verify-package.sh` then checks an existing bundle (`$VIBE_APP`, else that default
+location): bundle identifier, the rebranded `product.json`, the built-in extension and
+the bundled CLI's version/commit against `upstream.json`. One `ok:` line per check.
+
+`install-cli.sh` symlinks `bin/vibe` into the first writable of `$VIBE_BIN_DIR`,
+`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`; `code` is never touched and sudo
+is never used. `vibe --vibe-which` names the backend it resolves to — the packaged app
+when there is one, else the dev build. To undo: `install-cli.sh --uninstall` removes the
+symlink, and `rm -rf vibe/VSCode-*` removes the app.
+
 ## Bumping the upstream pin
 
 1. `scripts/check.sh` — make sure nothing in the checkout is unexported.

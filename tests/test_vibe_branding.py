@@ -6,8 +6,10 @@ Three things are checked here, all of them cheap and hermetic:
     behave: install / re-install / refuse / --force / --uninstall against a
     throwaway `VIBE_BIN_DIR`, never a real system directory.
   * `vibe --vibe-which` resolves its own location THROUGH a symlink (macOS has
-    no `readlink -f`), reports the dev backend and the real checkout, and
-    honours a `$VIBE_APP` override pointed at a fake `.app` bundle.
+    no `readlink -f`), reports the dev backend of the root it lands in, and
+    honours a `$VIBE_APP` override pointed at a fake `.app` bundle. The dev
+    cases run against a throwaway root: next to the real checkout a packaged
+    bundle may exist, and it legitimately wins over the dev build.
   * `vibe/vscode/product.json` — only when the gitignored upstream checkout is
     present — carries the Vibe identity keys and the Open VSX gallery.
 """
@@ -48,6 +50,18 @@ def make_fake_app(root: Path) -> Path:
     return app
 
 
+def make_dev_root(root: Path) -> Path:
+    """A vibe root holding only `bin/vibe` and a stub checkout, so the dev backend is
+    the one resolution has to find."""
+    (root / "bin").mkdir(parents=True)
+    shutil.copy2(BIN_VIBE, root / "bin" / "vibe")
+    code = root / "vscode" / "scripts" / "code.sh"
+    code.parent.mkdir(parents=True)
+    code.write_text('#!/usr/bin/env bash\nprintf "dev-code:%s\\n" "$@"\n', encoding="utf-8")
+    code.chmod(0o755)
+    return root
+
+
 # --------------------------------------------------------------------------- #
 # scripts exist and parse
 # --------------------------------------------------------------------------- #
@@ -84,24 +98,26 @@ def which_fields(proc: subprocess.CompletedProcess) -> dict[str, str]:
 def test_which_through_symlink_reports_dev_backend(tmp_path: Path) -> None:
     """Invoked as a symlink from an unrelated directory, `vibe` must still find
     its own checkout — the whole point of the readlink loop."""
+    root = make_dev_root(tmp_path / "vibe")
     link_dir = tmp_path / "bin"
     link_dir.mkdir()
     link = link_dir / "vibe"
-    link.symlink_to(BIN_VIBE)
+    link.symlink_to(root / "bin" / "vibe")
 
     fields = which_fields(run([str(link), "--vibe-which"], cwd=tmp_path))
     assert fields["backend"] == "dev"
-    assert fields["checkout"] == str(VIBE / "vscode")
-    assert fields["target"] == str(VIBE / "vscode" / "scripts" / "code.sh")
+    assert fields["checkout"] == str(root / "vscode")
+    assert fields["target"] == str(root / "vscode" / "scripts" / "code.sh")
 
 
 def test_which_through_symlink_chain(tmp_path: Path) -> None:
+    root = make_dev_root(tmp_path / "vibe")
     first = tmp_path / "vibe-1"
     second = tmp_path / "vibe-2"
-    first.symlink_to(BIN_VIBE)
+    first.symlink_to(root / "bin" / "vibe")
     second.symlink_to(first)
     fields = which_fields(run([str(second), "--vibe-which"], cwd=tmp_path))
-    assert fields["checkout"] == str(VIBE / "vscode")
+    assert fields["checkout"] == str(root / "vscode")
 
 
 def test_which_honours_vibe_app_override(tmp_path: Path) -> None:
@@ -215,13 +231,16 @@ def test_uninstall_leaves_foreign_entry_alone(tmp_path: Path) -> None:
     assert (bin_dir / "vibe").read_text(encoding="utf-8") == "not ours\n"
 
 
-def test_installed_symlink_resolves_to_dev_backend(tmp_path: Path) -> None:
-    """End to end: install, then run the installed name."""
+@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
+                    reason="a real /Applications bundle would legitimately win")
+def test_installed_symlink_resolves_to_our_root(tmp_path: Path) -> None:
+    """End to end: install, then run the installed name. Whether the dev build or a
+    packaged bundle answers depends on what has been built; the root must be ours."""
     bin_dir = tmp_path / "bin"
     assert install(bin_dir).returncode == 0
     fields = which_fields(run([str(bin_dir / "vibe"), "--vibe-which"], cwd=tmp_path))
-    assert fields["backend"] == "dev"
-    assert fields["checkout"] == str(VIBE / "vscode")
+    home = fields.get("checkout") or fields.get("app")
+    assert home and home.startswith(f"{VIBE}{os.sep}"), fields
 
 
 # --------------------------------------------------------------------------- #
