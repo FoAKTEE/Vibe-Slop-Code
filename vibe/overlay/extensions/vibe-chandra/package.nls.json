@@ -1,4 +1,20 @@
 {
 	"displayName": "Chandra Workflow Graph",
-	"description": "Renders the Chandra research workflow (a directed hypergraph folded from the append-only ledgers) natively in the editor."
+	"description": "Renders the Chandra research workflow (a directed hypergraph folded from the append-only ledgers) natively in the editor.",
+	"container.title": "Chandra",
+	"view.graph.name": "Workflow Graph",
+	"view.nodes.name": "Nodes",
+	"view.nodes.welcome": "No knowledge-ledger nodes were found in this workspace.\nLedgers are read from `<ledger root>/<db>/paper_<P>/*.jsonl` of every workspace folder.\n[Refresh](command:vibeChandra.refresh)\n[Configure the Ledger Root](command:workbench.action.openSettings?%22vibeChandra.ledgerRoot%22)",
+	"command.openGraph": "Open Workflow Graph",
+	"command.focusNode": "Focus Node...",
+	"command.selectPaper": "Select Papers...",
+	"command.refresh": "Refresh Ledgers",
+	"command.revealNodeInLedger": "Reveal Node in Ledger",
+	"command.openEvidence": "Open Evidence",
+	"config.ledgerRoot": "Folder that holds the Chandra ledgers (`<db>/paper_<P>/*.jsonl`), relative to each workspace folder.",
+	"config.papers": "Papers to show in the workflow graph. Empty shows every paper found. **Chandra: Select Papers...** overrides this per workspace.",
+	"config.layoutDirection": "Flow direction of the workflow graph until it is toggled in the view.",
+	"config.layoutDirection.auto": "Left to right in the editor area, top to bottom in the narrow side bar view.",
+	"config.layoutDirection.lr": "Dependencies flow from left to right.",
+	"config.layoutDirection.td": "Dependencies flow from top to bottom."
 }

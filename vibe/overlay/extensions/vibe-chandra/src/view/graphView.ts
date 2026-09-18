@@ -5,7 +5,7 @@ import { NODE_STATUSES, type GraphNode, type Hypergraph } from '../model/types.t
 import { clear, el, icon, svg } from './dom.ts';
 import { glyphIcon, ringIcon } from './glyphs.ts';
 import { formatHash, parseHash, type Reach, type ViewState } from './hashState.ts';
-import type { Host } from './host.ts';
+import type { FlowDirection, Host } from './host.ts';
 import { layoutGraph } from './layout.ts';
 import { PanZoom, type Box, type Insets } from './panZoom.ts';
 import { renderPanel } from './panel.ts';
@@ -23,13 +23,18 @@ const MAX_RESULTS = 12;
 
 const KEYS: [string, string][] = [
 	['/', 'search nodes, Enter jumps'], ['click', 'focus a node: light its upstream and downstream reach'], ['U  D', 'restrict the reach to upstream / downstream'],
-	['R', 'route probe: pick a second node'], ['← → ↑ ↓', 'walk to a neighbour'], ['+  −  0', 'zoom in / out / fit'], ['T', 'left-to-right or top-down'],
+	['R', 'route probe: pick a second node'], ['← → ↑ ↓', 'walk to a neighbour'], ['+  \u2212  0', 'zoom in / out / fit'], ['T', 'left-to-right or top-down'],
 	['I', 'show retired and amended nodes'], ['F', 'presentation: hide the chrome and fit'], ['Esc', 'step back: route, focus, lens'],
 ];
 
+export interface MountOptions {
+	/** The flow direction of a view that carries no saved state; the host's configuration. */
+	direction?: FlowDirection;
+}
+
 /** Mounts the interactive workflow graph into `root`. The view talks to the outside only through `host`. */
-export function mount(root: HTMLElement, host: Host): GraphView {
-	return new View(root, host);
+export function mount(root: HTMLElement, host: Host, options: MountOptions = {}): GraphView {
+	return new View(root, host, options.direction ?? 'lr');
 }
 
 class View implements GraphView {
@@ -48,14 +53,15 @@ class View implements GraphView {
 	private readonly empty: HTMLElement;
 	private readonly directionButton: HTMLButtonElement;
 	private readonly resizeObserver: ResizeObserver;
-	private readonly onHashChange = (): void => this.restore(parseHash(location.hash));
+	private readonly onHashChange = (): void => this.restore(parseHash(location.hash, this.defaultDirection));
 
 	private graph: Hypergraph = EMPTY_GRAPH;
 	private index: GraphIndex = indexGraph(EMPTY_GRAPH);
 	private frontier = new Set<string>();
 	private cycles = new Map<string, string[]>();
 	private scene: Scene | undefined;
-	private state: ViewState = parseHash(location.hash);
+	private defaultDirection: FlowDirection;
+	private state: ViewState;
 	private route: Route | undefined;
 	private picking = false;
 	private query = '';
@@ -65,9 +71,12 @@ class View implements GraphView {
 	/** Set when a graph arrived before the container had a size (a webview that is still hidden). */
 	private frameWhenSized = false;
 
-	constructor(root: HTMLElement, host: Host) {
+	constructor(root: HTMLElement, host: Host, defaultDirection: FlowDirection) {
 		this.root = root;
 		this.host = host;
+		this.defaultDirection = defaultDirection;
+		// A host that keeps state (the editor) wins over the URL: a webview's URL is not the user's to share.
+		this.state = parseHash(host.loadState?.() ?? location.hash, defaultDirection);
 		root.classList.add('vc-root');
 		root.tabIndex = 0;
 
@@ -87,7 +96,7 @@ class View implements GraphView {
 		this.stats = el('span', 'vc-stats');
 		const toolbar = el('div', 'vc-toolbar', this.search,
 			this.button(icon('M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4'), 'Fit (0)', () => this.frame(true)),
-			this.button(icon('M3 8h10'), 'Zoom out (−)', () => this.panZoom.zoomBy(1 / 1.3)),
+			this.button(icon('M3 8h10'), 'Zoom out (\u2212)', () => this.panZoom.zoomBy(1 / 1.3)),
 			this.button(icon('M3 8h10M8 3v10'), 'Zoom in (+)', () => this.panZoom.zoomBy(1.3)),
 			this.directionButton,
 			this.button(icon('M6 6a2 2 0 1 1 3 1.7c-.7.5-1 .9-1 1.8M8 12v.5'), 'Keyboard shortcuts (?)', () => this.help.hidden = !this.help.hidden),
@@ -128,6 +137,9 @@ class View implements GraphView {
 				this.setGraph(message.graph);
 			} else if (message.type === 'focus') {
 				this.focus(message.id);
+			} else if (message.type === 'config') {
+				this.defaultDirection = message.direction;
+				this.update({ direction: message.direction });
 			}
 		});
 		host.post({ type: 'ready' });
@@ -136,6 +148,9 @@ class View implements GraphView {
 	// --- public ----------------------------------------------------------------------------------------
 
 	setGraph(graph: Hypergraph): void {
+		// A pan or zoom of the user's survives the rows appended to the papers on screen. Without one the growing
+		// graph is framed again, and another set of papers is another picture anyway.
+		const keepView = this.framed && this.panZoom.adjusted && graph.papers.join('\n') === this.graph.papers.join('\n');
 		this.graph = graph;
 		this.index = indexGraph(graph);
 		this.frontier = new Set(graph.frontier);
@@ -143,7 +158,7 @@ class View implements GraphView {
 		for (const scc of graph.cycles.sccs) {
 			scc.forEach(id => this.cycles.set(id, scc));
 		}
-		this.relayout(this.framed);
+		this.relayout(keepView);
 	}
 
 	focus(id: string): void {
@@ -174,16 +189,26 @@ class View implements GraphView {
 		} else {
 			this.refresh();
 		}
-		const hash = formatHash(this.state);
-		try {
-			history.replaceState(null, '', hash || location.pathname + location.search);
-		} catch {
-			location.hash = hash;
+		const hash = formatHash(this.state, this.defaultDirection);
+		if (this.host.saveState) {
+			this.host.saveState(hash);
+		} else {
+			try {
+				history.replaceState(null, '', hash || location.pathname + location.search);
+			} catch {
+				location.hash = hash;
+			}
+		}
+		if (this.state.focus !== undefined && this.state.focus !== before.focus) {
+			this.host.post({ type: 'focused', id: this.state.focus });
+		} else if (this.state.focus === undefined && before.focus !== undefined && !this.state.route && !this.panZoom.adjusted) {
+			// The view was framed on the reach of the node that just lost the focus, and the user never moved it.
+			this.frame(true);
 		}
 	}
 
 	private restore(state: ViewState): void {
-		if (formatHash(state) !== formatHash(this.state)) {
+		if (formatHash(state, this.defaultDirection) !== formatHash(this.state, this.defaultDirection)) {
 			const relayout = state.direction !== this.state.direction || state.showInactive !== this.state.showInactive;
 			this.state = state;
 			if (relayout) {
@@ -351,7 +376,7 @@ class View implements GraphView {
 			chip('ready', ringIcon('vc-ring'), count('ready'), 'ready', 'Lens: the frontier — not solid yet, every predecessor solid');
 		}
 		if (count('failing')) {
-			chip('failing', el('b', 'vc-failing-mark', '✕'), count('failing'), 'failing', 'Lens: nodes whose latest trials failed');
+			chip('failing', el('b', 'vc-failing-mark', '\u2715'), count('failing'), 'failing', 'Lens: nodes whose latest trials failed');
 		}
 		if (this.graph.cycles.cyclic) {
 			chip('cycle', svg('svg', { viewBox: '0 0 16 12', class: 'vc-icon' }, svg('path', { class: 'vc-seg vc-seg-loop', d: 'M1 6h14' })), this.graph.cycles.sccs.length,

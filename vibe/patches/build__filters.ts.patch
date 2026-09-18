@@ -1,0 +1,22 @@
+diff --git a/build/filters.ts b/build/filters.ts
+index 9a5766c7e6270644bf1df726765dec6af15616fd..c48587d73f97dd4af71d19d0db8e75f57b61209d 100644
+--- a/build/filters.ts
++++ b/build/filters.ts
+@@ -167,6 +167,7 @@ export const indentationFilter = Object.freeze<string[]>([
+ 	'!extensions/ipynb/notebook-out/**',
+ 	'!extensions/notebook-renderers/renderer-out/*.js',
+ 	'!extensions/simple-browser/media/*.js',
++	'!extensions/vibe-chandra/media/*.js',
+ ]);
+ 
+ export const copyrightFilter = Object.freeze<string[]>([
+@@ -225,6 +226,9 @@ export const copyrightFilter = Object.freeze<string[]>([
+ 
+ 	// extensions/copilot has its own code style
+ 	'!extensions/copilot/**',
++
++	// extensions/vibe-chandra carries SPDX headers
++	'!extensions/vibe-chandra/**',
+ ]);
+ 
+ export const tsFormattingFilter = Object.freeze<string[]>([

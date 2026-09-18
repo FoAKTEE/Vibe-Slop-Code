@@ -3,8 +3,8 @@ harness/**
 src/**
 tsconfig*.json
 **/*.tsbuildinfo
-out/test/**
-esbuild*
+out/**
+esbuild*.mts
 .gitignore
 .npmrc
 package-lock.json

@@ -112,7 +112,7 @@ export function renderPanel(container: HTMLElement, node: GraphNode, ctx: PanelC
 		ctx.frontier.has(node.id) ? el('span', 'vc-pill vc-pill-frontier', ringIcon('vc-ring'), 'ready') : null,
 		cycle ? el('span', 'vc-pill vc-pill-loop', cycle.length > 1 ? `on a cycle of ${cycle.length}` : 'self-loop') : null,
 		stats.failStreak > 0 ? el('span', 'vc-pill vc-pill-fail', `failing ×${stats.failStreak}`) : null,
-		node.conceptAdvance ? el('span', 'vc-pill', '△ concept advance') : null,
+		node.conceptAdvance ? el('span', 'vc-pill', '\u25b3 concept advance') : null,
 		node.riskTier ? el('span', 'vc-pill', node.riskTier) : null));
 	if (node.summary) {
 		body.append(el('p', 'vc-summary', node.summary));

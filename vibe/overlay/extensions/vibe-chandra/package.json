@@ -11,10 +11,174 @@
   "categories": [
     "Visualization"
   ],
+  "main": "./out/extension",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "activationEvents": [
+    "workspaceContains:results/ledgers",
+    "onView:vibeChandra.graph",
+    "onView:vibeChandra.nodes",
+    "onWebviewPanel:vibeChandra.graphPanel"
+  ],
   "capabilities": {
     "virtualWorkspaces": true,
     "untrustedWorkspaces": {
       "supported": true
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vibeChandra",
+          "title": "%container.title%",
+          "icon": "media/chandra.svg"
+        }
+      ]
+    },
+    "views": {
+      "vibeChandra": [
+        {
+          "id": "vibeChandra.graph",
+          "type": "webview",
+          "name": "%view.graph.name%",
+          "initialSize": 3
+        },
+        {
+          "id": "vibeChandra.nodes",
+          "name": "%view.nodes.name%",
+          "initialSize": 2
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "vibeChandra.nodes",
+        "contents": "%view.nodes.welcome%"
+      }
+    ],
+    "commands": [
+      {
+        "command": "vibeChandra.openGraph",
+        "title": "%command.openGraph%",
+        "category": "Chandra",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "vibeChandra.focusNode",
+        "title": "%command.focusNode%",
+        "category": "Chandra",
+        "icon": "$(target)"
+      },
+      {
+        "command": "vibeChandra.selectPaper",
+        "title": "%command.selectPaper%",
+        "category": "Chandra",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "vibeChandra.refresh",
+        "title": "%command.refresh%",
+        "category": "Chandra",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vibeChandra.revealNodeInLedger",
+        "title": "%command.revealNodeInLedger%",
+        "category": "Chandra",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "vibeChandra.openEvidence",
+        "title": "%command.openEvidence%",
+        "category": "Chandra",
+        "icon": "$(verified)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "vibeChandra.openGraph",
+          "when": "view == vibeChandra.graph",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vibeChandra.selectPaper",
+          "when": "view == vibeChandra.graph || view == vibeChandra.nodes",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vibeChandra.refresh",
+          "when": "view == vibeChandra.graph || view == vibeChandra.nodes",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vibeChandra.focusNode",
+          "when": "view == vibeChandra.nodes",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vibeChandra.revealNodeInLedger",
+          "when": "view == vibeChandra.nodes && viewItem =~ /^node/",
+          "group": "inline@1"
+        },
+        {
+          "command": "vibeChandra.focusNode",
+          "when": "view == vibeChandra.nodes && viewItem != group",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vibeChandra.revealNodeInLedger",
+          "when": "view == vibeChandra.nodes && viewItem =~ /^node/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vibeChandra.openEvidence",
+          "when": "view == vibeChandra.nodes && viewItem =~ /evidence/",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Chandra",
+      "properties": {
+        "vibeChandra.ledgerRoot": {
+          "type": "string",
+          "default": "results/ledgers",
+          "scope": "window",
+          "markdownDescription": "%config.ledgerRoot%"
+        },
+        "vibeChandra.papers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "%config.papers%"
+        },
+        "vibeChandra.layoutDirection": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "lr",
+            "td"
+          ],
+          "enumDescriptions": [
+            "%config.layoutDirection.auto%",
+            "%config.layoutDirection.lr%",
+            "%config.layoutDirection.td%"
+          ],
+          "default": "auto",
+          "scope": "window",
+          "description": "%config.layoutDirection%"
+        }
+      }
     }
   },
   "scripts": {

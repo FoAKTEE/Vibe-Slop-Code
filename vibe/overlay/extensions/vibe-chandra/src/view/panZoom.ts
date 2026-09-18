@@ -30,6 +30,7 @@ export class PanZoom {
 	private readonly pointers = new Map<number, { x: number; y: number }>();
 	private dragOrigin: { x: number; y: number } | undefined;
 	private moved = false;
+	private userAdjusted = false;
 	private frame = 0;
 	private animation = 0;
 	/** Where a running animation will end; gestures compose on this, not on the in-between state. */
@@ -56,7 +57,13 @@ export class PanZoom {
 		return this.moved;
 	}
 
+	/** True once the user panned or zoomed since the last `fit`: their framing, not ours, and worth keeping. */
+	get adjusted(): boolean {
+		return this.userAdjusted;
+	}
+
 	zoomBy(factor: number, cx = this.surface.clientWidth / 2, cy = this.surface.clientHeight / 2, animate = true): void {
+		this.userAdjusted = true;
 		const from = this.target;
 		const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, from.k * factor));
 		const ratio = k / from.k;
@@ -65,6 +72,7 @@ export class PanZoom {
 
 	/** Frames `box` (graph coordinates) inside the surface minus `insets`, never magnifying beyond `maxScale`. */
 	fit(box: Box, insets: Insets, maxScale: number, animate: boolean): void {
+		this.userAdjusted = false;
 		const availableW = Math.max(40, this.surface.clientWidth - insets.left - insets.right);
 		const availableH = Math.max(40, this.surface.clientHeight - insets.top - insets.bottom);
 		const k = Math.max(MIN_SCALE, Math.min(maxScale, availableW / Math.max(1, box.w), availableH / Math.max(1, box.h)));
@@ -167,6 +175,7 @@ export class PanZoom {
 				this.zoomBy(after / before, (now.x + other.x) / 2, (now.y + other.y) / 2, false);
 			}
 		} else {
+			this.userAdjusted = true;
 			this.moveTo(this.x + now.x - previous.x, this.y + now.y - previous.y, this.k, false);
 		}
 		this.pointers.set(e.pointerId, now);

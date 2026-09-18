@@ -1,0 +1,20 @@
+diff --git a/eslint.config.js b/eslint.config.js
+index 380730532e41e6e6247774351da9c07deeda6d6f..1bfd7ddf5a83cae88054af98d0cee7d23da73973 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -2938,6 +2938,15 @@ export default defineConfig(
+ 			],
+ 		}
+ 	},
++	// vibe-chandra carries SPDX headers
++	{
++		files: [
++			'extensions/vibe-chandra/**',
++		],
++		rules: {
++			'header/header': 'off',
++		}
++	},
+ 	// Forbid new JavaScript files - use TypeScript instead.
+ 	// The allowlist of pre-existing JS/CJS/MJS files lives in
+ 	// `.eslint-allowed-javascript-files`, which is gated by CODEOWNERS.

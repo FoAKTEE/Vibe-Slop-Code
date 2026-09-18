@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MIT */
+
+/* The page around the graph inside the editor: no default webview padding, the graph fills the viewport. */
+html,
+body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+#vibe-chandra-graph {
+	position: fixed;
+	inset: 0;
+}
+
+/* The side bar view sits on the side bar, the panel on the editor. */
+body.vc-surface-view .vc-root {
+	--vc-bg: var(--vscode-sideBar-background, var(--fb-bg));
+}

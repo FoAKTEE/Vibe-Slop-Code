@@ -2,3 +2,4 @@
 media/*.js
 harness/dist/
 out/
+dist/

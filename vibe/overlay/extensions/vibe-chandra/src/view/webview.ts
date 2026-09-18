@@ -6,5 +6,6 @@ import { webviewHost } from './host.ts';
 
 const host = webviewHost();
 if (host) {
-	mount(document.getElementById('vibe-chandra-graph') ?? document.body, host);
+	const root = document.getElementById('vibe-chandra-graph') ?? document.body;
+	mount(root, host, { direction: root.getAttribute('data-direction') === 'td' ? 'td' : 'lr' });
 }

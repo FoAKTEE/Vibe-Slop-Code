@@ -23,7 +23,7 @@ function statusClass(node: GraphNode): string {
 	return node.ghost ? 'vc-s-ghost vc-ghost' : `vc-s-${node.status}`;
 }
 
-/** `k3 · t4 ✕3`: knowledge records and trials attached under the node, failures called out. */
+/** `k3 · t4 x3`: knowledge records and trials attached under the node, failures called out. */
 function badgeParts(node: GraphNode): { text: string; failing: boolean }[] {
 	const parts: { text: string; failing: boolean }[] = [];
 	if (node.revisionCount > 1) {
@@ -34,7 +34,7 @@ function badgeParts(node: GraphNode): { text: string; failing: boolean }[] {
 	}
 	if (node.trialStats.failed > 0) {
 		// Bold red while the node is currently failing; a past failure that was fixed stays muted.
-		parts.push({ text: `✕${node.trialStats.failed}`, failing: node.trialStats.failStreak > 0 });
+		parts.push({ text: `\u2715${node.trialStats.failed}`, failing: node.trialStats.failStreak > 0 });
 	}
 	if (node.openObligations > 0) {
 		parts.push({ text: `!${node.openObligations}`, failing: true });

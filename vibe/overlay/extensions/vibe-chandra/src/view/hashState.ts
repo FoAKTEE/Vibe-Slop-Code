@@ -29,8 +29,11 @@ function decode(value: string): string {
 	}
 }
 
-/** `#focus=<id>&reach=upstream`, `#focus=<a>&route=<a>~<b>`, `#lens=solid~blocking`, `#dir=td`, `#inactive=1`. */
-export function formatHash(state: ViewState): string {
+/**
+ * `#focus=<id>&reach=upstream`, `#focus=<a>&route=<a>~<b>`, `#lens=solid~blocking`, `#dir=td`, `#inactive=1`.
+ * `defaultDirection` is the direction the host configured: only a departure from it is written down.
+ */
+export function formatHash(state: ViewState, defaultDirection: ViewState['direction'] = 'lr'): string {
 	const parts: string[] = [];
 	if (state.focus !== undefined) {
 		parts.push(`focus=${encode(state.focus)}`);
@@ -44,7 +47,7 @@ export function formatHash(state: ViewState): string {
 	if (state.lens.length) {
 		parts.push(`lens=${state.lens.map(encode).join('~')}`);
 	}
-	if (state.direction !== 'lr') {
+	if (state.direction !== defaultDirection) {
 		parts.push(`dir=${state.direction}`);
 	}
 	if (state.showInactive) {
@@ -53,8 +56,8 @@ export function formatHash(state: ViewState): string {
 	return parts.length ? `#${parts.join('&')}` : '';
 }
 
-export function parseHash(hash: string): ViewState {
-	const state: ViewState = { ...DEFAULT_STATE, lens: [] };
+export function parseHash(hash: string, defaultDirection: ViewState['direction'] = 'lr'): ViewState {
+	const state: ViewState = { ...DEFAULT_STATE, lens: [], direction: defaultDirection };
 	const text = typeof hash === 'string' ? hash.replace(/^#/, '') : '';
 	let reach: Reach = 'both';
 	for (const part of text.split('&')) {
@@ -78,8 +81,8 @@ export function parseHash(hash: string): ViewState {
 			}
 		} else if (key === 'lens') {
 			state.lens = raw.split('~').map(decode).filter(x => x !== '');
-		} else if (key === 'dir' && raw === 'td') {
-			state.direction = 'td';
+		} else if (key === 'dir' && (raw === 'td' || raw === 'lr')) {
+			state.direction = raw;
 		} else if (key === 'inactive' && raw === '1') {
 			state.showInactive = true;
 		}

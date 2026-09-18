@@ -44,3 +44,16 @@ test('hash state: malformed input never throws and unknown keys are ignored', ()
 test('hash state: reach without a focus is meaningless and dropped', () => {
 	assert.deepEqual(parseHash('#reach=upstream'), DEFAULT_STATE);
 });
+
+test('hash state: the default direction is the host\'s, and only a departure from it is written down', () => {
+	assert.equal(formatHash(state({ direction: 'td' }), 'td'), '');
+	assert.equal(formatHash(state({ direction: 'lr' }), 'td'), '#dir=lr');
+	assert.deepEqual(parseHash('', 'td'), state({ direction: 'td' }));
+	assert.deepEqual(parseHash('#dir=lr', 'td'), state({ direction: 'lr' }));
+	assert.deepEqual(parseHash('#dir=diagonal', 'td'), state({ direction: 'td' }));
+	for (const direction of ['lr', 'td'] as const) {
+		for (const fallback of ['lr', 'td'] as const) {
+			assert.deepEqual(parseHash(formatHash(state({ direction }), fallback), fallback), state({ direction }));
+		}
+	}
+});

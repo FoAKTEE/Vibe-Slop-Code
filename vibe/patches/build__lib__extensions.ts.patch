@@ -1,0 +1,12 @@
+diff --git a/build/lib/extensions.ts b/build/lib/extensions.ts
+index e487ff5cec61a880a3ef8527fe56c050458b8089..c047a1e485aae2763abd7991a201b16534d8fb73 100644
+--- a/build/lib/extensions.ts
++++ b/build/lib/extensions.ts
+@@ -627,6 +627,7 @@ const esbuildMediaScripts: { script: string; tsconfig: string }[] = [
+ 	{ script: 'mermaid-markdown-features/esbuild.webview.mts', tsconfig: 'mermaid-markdown-features/preview-src/tsconfig.json' },
+ 	{ script: 'notebook-renderers/esbuild.notebook.mts', tsconfig: 'notebook-renderers/tsconfig.json' },
+ 	{ script: 'simple-browser/esbuild.webview.mts', tsconfig: 'simple-browser/preview-src/tsconfig.json' },
++	{ script: 'vibe-chandra/esbuild.webview.mts', tsconfig: 'vibe-chandra/src/view/tsconfig.json' },
+ ];
+ 
+ export function buildExtensionMedia(isWatch: boolean, outputRoot?: string): Promise<void> {
