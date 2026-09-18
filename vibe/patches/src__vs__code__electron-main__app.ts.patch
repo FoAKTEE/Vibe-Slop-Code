@@ -1,0 +1,52 @@
+diff --git a/src/vs/code/electron-main/app.ts b/src/vs/code/electron-main/app.ts
+index 3823d3ff535759963d145d3df82a8170d120e696..c6aa72ec48ce98fd31a51d70e42d81743c555965 100644
+--- a/src/vs/code/electron-main/app.ts
++++ b/src/vs/code/electron-main/app.ts
+@@ -100,6 +100,8 @@ import { ICodeWindow } from '../../platform/window/electron-main/window.js';
+ import { WindowsMainService } from '../../platform/windows/electron-main/windowsMainService.js';
+ import { ActiveWindowManager } from '../../platform/windows/node/windowTracker.js';
+ import { hasWorkspaceFileExtension } from '../../platform/workspace/common/workspace.js';
++import { IWorkspaceBarMainService, WORKSPACE_BAR_CHANNEL_NAME } from '../../platform/workspaceBar/common/workspaceBar.js';
++import { WorkspaceBarMainService } from '../../platform/workspaceBar/electron-main/workspaceBarMainService.js';
+ import { IWorkspacesService } from '../../platform/workspaces/common/workspaces.js';
+ import { IWorkspacesHistoryMainService, WorkspacesHistoryMainService } from '../../platform/workspaces/electron-main/workspacesHistoryMainService.js';
+ import { WorkspacesMainService } from '../../platform/workspaces/electron-main/workspacesMainService.js';
+@@ -160,6 +162,7 @@ export class CodeApplication extends Disposable {
+ 	private windowsMainService: IWindowsMainService | undefined;
+ 	private auxiliaryWindowsMainService: IAuxiliaryWindowsMainService | undefined;
+ 	private nativeHostMainService: INativeHostMainService | undefined;
++	private workspaceBarMainService: IWorkspaceBarMainService | undefined; // vibe: workspace bar
+ 
+ 	constructor(
+ 		private readonly mainProcessNodeIpcServer: NodeIPCServer,
+@@ -472,7 +475,8 @@ export class CodeApplication extends Disposable {
+ 			this.logService.trace('app#activate');
+ 
+ 			// Mac only event: open new window when we get activated
+-			if (!hasVisibleWindows) {
++			// vibe: unless the workspace bar has a hidden window to present
++			if (!hasVisibleWindows && !(await this.workspaceBarMainService?.revealLastActive())) {
+ 				await this.windowsMainService?.openEmptyWindow({ context: OpenContext.DOCK });
+ 			}
+ 		});
+@@ -1201,6 +1205,9 @@ export class CodeApplication extends Disposable {
+ 		services.set(IWorkspacesService, new SyncDescriptor(WorkspacesMainService, undefined, false /* proxied to other processes */));
+ 		services.set(IWorkspacesHistoryMainService, new SyncDescriptor(WorkspacesHistoryMainService, undefined, false));
+ 
++		// vibe: workspace bar
++		services.set(IWorkspaceBarMainService, new SyncDescriptor(WorkspaceBarMainService, undefined, false /* proxied to other processes */));
++
+ 		// URL handling
+ 		services.set(IURLService, new SyncDescriptor(NativeURLService, undefined, false /* proxied to other processes */));
+ 
+@@ -1335,6 +1342,10 @@ export class CodeApplication extends Disposable {
+ 		const workspacesChannel = ProxyChannel.fromService(accessor.get(IWorkspacesService), disposables);
+ 		mainProcessElectronServer.registerChannel('workspaces', workspacesChannel);
+ 
++		// vibe: workspace bar (created before the first window opens)
++		this.workspaceBarMainService = accessor.get(IWorkspaceBarMainService);
++		mainProcessElectronServer.registerChannel(WORKSPACE_BAR_CHANNEL_NAME, ProxyChannel.fromService(this.workspaceBarMainService, disposables));
++
+ 		// Menubar
+ 		const menubarChannel = ProxyChannel.fromService(accessor.get(IMenubarMainService), disposables);
+ 		mainProcessElectronServer.registerChannel('menubar', menubarChannel);

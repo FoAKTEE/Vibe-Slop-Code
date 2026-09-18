@@ -156,4 +156,12 @@ export interface IWorkspaceBarMainService {
 	 * their host group.
 	 */
 	reorder(entryId: string, beforeId?: string): Promise<void>;
+
+	/**
+	 * Presents the most recently active window when all windows are
+	 * hidden or minimized, as it happens when the application is
+	 * activated without visible windows. Resolves to whether there
+	 * was a window to present.
+	 */
+	revealLastActive(): Promise<boolean>;
 }

@@ -1,0 +1,12 @@
+diff --git a/src/vs/workbench/workbench.desktop.main.ts b/src/vs/workbench/workbench.desktop.main.ts
+index 7f7312caae19f6159175625558624aa53a38a229..08367beb056cdd30c17582d0540cc13fc11de1e9 100644
+--- a/src/vs/workbench/workbench.desktop.main.ts
++++ b/src/vs/workbench/workbench.desktop.main.ts
+@@ -37,6 +37,7 @@ import './electron-browser/parts/dialogs/dialog.contribution.js';
+ import './services/textfile/electron-browser/nativeTextFileService.js';
+ import './services/dialogs/electron-browser/fileDialogService.js';
+ import './services/workspaces/electron-browser/workspacesService.js';
++import './services/workspaceBar/electron-browser/workspaceBarService.js'; // vibe: workspace bar
+ import './services/menubar/electron-browser/menubarService.js';
+ import './services/update/electron-browser/updateService.js';
+ import './services/url/electron-browser/urlService.js';

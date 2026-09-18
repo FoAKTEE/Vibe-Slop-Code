@@ -1,0 +1,22 @@
+diff --git a/src/vs/platform/windows/electron-main/windowImpl.ts b/src/vs/platform/windows/electron-main/windowImpl.ts
+index 5dedaecb00b5c14e120424182b575c0f2170dd52..2095b9485095f90f6434c93a31444fe66570b9cd 100644
+--- a/src/vs/platform/windows/electron-main/windowImpl.ts
++++ b/src/vs/platform/windows/electron-main/windowImpl.ts
+@@ -391,6 +391,8 @@ export abstract class BaseWindow extends Disposable implements IBaseWindow {
+ 
+ 		if (win.isMinimized()) {
+ 			win.restore();
++		} else if (!win.isVisible()) {
++			win.show(); // vibe: a window the workspace bar has hidden is presented when it gets focus
+ 		}
+ 
+ 		win.focus();
+@@ -1225,7 +1227,7 @@ export class CodeWindow extends BaseWindow implements ICodeWindow {
+ 		// Only do this when running out of sources and not when running tests
+ 		if (!this.environmentMainService.isBuilt && !this.environmentMainService.extensionTestsLocationURI) {
+ 			this._register(new RunOnceScheduler(() => {
+-				if (this._win && !this._win.isVisible() && !this._win.isMinimized()) {
++				if (this._win && !this._win.isVisible() && !this._win.isMinimized() && !this.isReady /* vibe: the workspace bar hides windows that are ready */) {
+ 					this._win.show();
+ 					this.focus({ mode: FocusMode.Force });
+ 					this._win.webContents.openDevTools();

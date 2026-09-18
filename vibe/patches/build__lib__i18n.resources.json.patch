@@ -1,0 +1,15 @@
+diff --git a/build/lib/i18n.resources.json b/build/lib/i18n.resources.json
+index b1dbfbbdc8ac9f12504951c90e6b0e6472dad538..2e3a2a94fc2ba52459ad6402e543f13dc3768d3d 100644
+--- a/build/lib/i18n.resources.json
++++ b/build/lib/i18n.resources.json
+@@ -486,6 +486,10 @@
+ 			"name": "vs/workbench/services/workspaces",
+ 			"project": "vscode-workbench"
+ 		},
++		{
++			"name": "vs/workbench/services/workspaceBar",
++			"project": "vscode-workbench"
++		},
+ 		{
+ 			"name": "vs/workbench/services/decorations",
+ 			"project": "vscode-workbench"

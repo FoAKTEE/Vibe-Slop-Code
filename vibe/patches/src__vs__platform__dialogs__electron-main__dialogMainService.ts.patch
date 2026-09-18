@@ -1,0 +1,15 @@
+diff --git a/src/vs/platform/dialogs/electron-main/dialogMainService.ts b/src/vs/platform/dialogs/electron-main/dialogMainService.ts
+index 64c3ad5e8ff6750bdc00a9955c5ff6503fe7ebff..eb9151785159fb66036c9e71195881f1d22ff27d 100644
+--- a/src/vs/platform/dialogs/electron-main/dialogMainService.ts
++++ b/src/vs/platform/dialogs/electron-main/dialogMainService.ts
+@@ -134,6 +134,10 @@ export class DialogMainService implements IDialogMainService {
+ 		// Queue message box requests per window so that one can show
+ 		// after the other.
+ 		if (window) {
++			if (!window.isDestroyed() && !window.isVisible() && !window.isMinimized()) {
++				window.show(); // vibe: the dialog of a window the workspace bar has hidden must be seen
++			}
++
+ 			let windowDialogQueue = this.windowDialogQueues.get(window.id);
+ 			if (!windowDialogQueue) {
+ 				windowDialogQueue = new Queue<electron.MessageBoxReturnValue | electron.SaveDialogReturnValue | electron.OpenDialogReturnValue>();
