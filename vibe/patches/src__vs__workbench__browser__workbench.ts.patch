@@ -1,0 +1,12 @@
+diff --git a/src/vs/workbench/browser/workbench.ts b/src/vs/workbench/browser/workbench.ts
+index 10e2c3edace79197d928d4586b369ff4f09e414a..99fdef1f2074d775cf8a7bd2d3e98694f59f2fa2 100644
+--- a/src/vs/workbench/browser/workbench.ts
++++ b/src/vs/workbench/browser/workbench.ts
+@@ -346,6 +346,7 @@ export class Workbench extends Layout {
+ 		for (const { id, role, classes, options } of [
+ 			{ id: Parts.TITLEBAR_PART, role: 'none', classes: ['titlebar'] },
+ 			{ id: Parts.BANNER_PART, role: 'banner', classes: ['banner'] },
++			{ id: Parts.WORKSPACEBAR_PART, role: 'none', classes: ['workspacebar'] }, // vibe: workspace bar
+ 			{ id: Parts.ACTIVITYBAR_PART, role: 'none', classes: ['activitybar', this.getSideBarPosition() === Position.LEFT ? 'left' : 'right'] }, // Use role 'none' for some parts to make screen readers less chatty #114892
+ 			{ id: Parts.SIDEBAR_PART, role: 'none', classes: ['sidebar', this.getSideBarPosition() === Position.LEFT ? 'left' : 'right'] },
+ 			{ id: Parts.EDITOR_PART, role: 'main', classes: ['editor'], options: { restorePreviousState: this.willRestoreEditors() } },

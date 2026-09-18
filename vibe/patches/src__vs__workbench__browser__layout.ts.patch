@@ -1,0 +1,118 @@
+diff --git a/src/vs/workbench/browser/layout.ts b/src/vs/workbench/browser/layout.ts
+index b51ca0f28c36aab25ccb9ae1e5b7d6f17da53751..506ce2b140c441d599532c6a671b320f4727d65d 100644
+--- a/src/vs/workbench/browser/layout.ts
++++ b/src/vs/workbench/browser/layout.ts
+@@ -42,6 +42,7 @@ import { IExtensionService } from '../services/extensions/common/extensions.js';
+ import { ILogService } from '../../platform/log/common/log.js';
+ import { DeferredPromise, Promises } from '../../base/common/async.js';
+ import { IBannerService } from '../services/banner/browser/bannerService.js';
++import { IWorkspaceBarPartService } from '../services/workspaceBar/browser/workspaceBarPartService.js'; // vibe: workspace bar
+ import { IPaneCompositePartService } from '../services/panecomposite/browser/panecomposite.js';
+ import { AuxiliaryBarPart } from './parts/auxiliarybar/auxiliaryBarPart.js';
+ import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
+@@ -259,6 +260,12 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 			quickPickTop = top;
+ 		}
+ 
++		// vibe: the workspace bar is below the title bar of the main window
++		if (targetWindow === mainWindow && this.isVisible(Parts.WORKSPACEBAR_PART)) {
++			top += this.getPart(Parts.WORKSPACEBAR_PART).maximumHeight;
++			quickPickTop = top;
++		}
++
+ 		const isCommandCenterVisible = titlebarVisible && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+ 		if (isCommandCenterVisible) {
+ 			// If the command center is visible then the quickinput
+@@ -278,6 +285,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 
+ 	private titleBarPartView!: ISerializableView;
+ 	private bannerPartView!: ISerializableView;
++	private workspaceBarPartView!: ISerializableView; // vibe: workspace bar
+ 	private activityBarPartView!: ISerializableView;
+ 	private sideBarPartView!: ISerializableView;
+ 	private panelPartView!: ISerializableView;
+@@ -340,6 +348,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 		this.notificationService = accessor.get(INotificationService);
+ 		this.statusBarService = accessor.get(IStatusbarService);
+ 		accessor.get(IBannerService);
++		accessor.get(IWorkspaceBarPartService); // vibe: workspace bar
+ 
+ 		// Listeners
+ 		this.registerLayoutListeners();
+@@ -1373,6 +1382,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 				return !this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN);
+ 			case Parts.BANNER_PART:
+ 				return this.initialized ? this.workbenchGrid.isViewVisible(this.bannerPartView) : false;
++			case Parts.WORKSPACEBAR_PART: // vibe: workspace bar
++				return this.initialized ? this.workbenchGrid.isViewVisible(this.workspaceBarPartView) : false;
+ 			default:
+ 				return false; // any other part cannot be hidden
+ 		}
+@@ -1631,6 +1642,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 	protected createWorkbenchLayout(): void {
+ 		const titleBar = this.getPart(Parts.TITLEBAR_PART);
+ 		const bannerPart = this.getPart(Parts.BANNER_PART);
++		const workspaceBarPart = this.getPart(Parts.WORKSPACEBAR_PART); // vibe: workspace bar
+ 		const editorPart = this.getPart(Parts.EDITOR_PART);
+ 		const activityBar = this.getPart(Parts.ACTIVITYBAR_PART);
+ 		const panelPart = this.getPart(Parts.PANEL_PART);
+@@ -1641,6 +1653,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 		// View references for all parts
+ 		this.titleBarPartView = titleBar;
+ 		this.bannerPartView = bannerPart;
++		this.workspaceBarPartView = workspaceBarPart; // vibe: workspace bar
+ 		this.sideBarPartView = sideBar;
+ 		this.activityBarPartView = activityBar;
+ 		this.editorPartView = editorPart;
+@@ -1651,6 +1664,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 		const viewMap: Record<string, ISerializableView> = {
+ 			[Parts.ACTIVITYBAR_PART]: this.activityBarPartView,
+ 			[Parts.BANNER_PART]: this.bannerPartView,
++			[Parts.WORKSPACEBAR_PART]: this.workspaceBarPartView, // vibe: workspace bar
+ 			[Parts.TITLEBAR_PART]: this.titleBarPartView,
+ 			[Parts.EDITOR_PART]: this.editorPartView,
+ 			[Parts.PANEL_PART]: this.panelPartView,
+@@ -1671,7 +1685,7 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 		this.workbenchGrid = workbenchGrid;
+ 		this.workbenchGrid.edgeSnapping = this.state.runtime.mainWindowFullscreen;
+ 
+-		for (const part of [titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart, bannerPart]) {
++		for (const part of [titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart, bannerPart, workspaceBarPart /* vibe: workspace bar */]) {
+ 			this._register(part.onDidVisibilityChange(visible => {
+ 				if (!this.inMaximizedAuxiliaryBarTransition) {
+ 
+@@ -2312,6 +2326,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 				return this.setEditorHidden(hidden);
+ 			case Parts.BANNER_PART:
+ 				return this.setBannerHidden(hidden);
++			case Parts.WORKSPACEBAR_PART: // vibe: workspace bar
++				return this.workbenchGrid.setViewVisible(this.workspaceBarPartView, !hidden);
+ 			case Parts.AUXILIARYBAR_PART:
+ 				return this.setAuxiliaryBarHidden(hidden);
+ 			case Parts.PANEL_PART:
+@@ -2633,9 +2649,10 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 
+ 		const titleBarHeight = this.titleBarPartView.minimumHeight;
+ 		const bannerHeight = this.bannerPartView.minimumHeight;
++		const workspaceBarHeight = this.workspaceBarPartView.minimumHeight; // vibe: workspace bar
+ 		const statusBarHeight = this.statusBarPartView.minimumHeight;
+ 		const activityBarWidth = this.activityBarPartView.minimumWidth;
+-		const middleSectionHeight = height - titleBarHeight - statusBarHeight;
++		const middleSectionHeight = height - titleBarHeight - workspaceBarHeight - statusBarHeight;
+ 
+ 		const titleAndBanner: ISerializedNode[] = [
+ 			{
+@@ -2644,6 +2661,13 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
+ 				size: titleBarHeight,
+ 				visible: this.isVisible(Parts.TITLEBAR_PART, mainWindow)
+ 			},
++			{
++				// vibe: workspace bar, directly below the title bar (it never shows where the banner goes first)
++				type: 'leaf',
++				data: { type: Parts.WORKSPACEBAR_PART },
++				size: workspaceBarHeight,
++				visible: workspaceBarHeight > 0
++			},
+ 			{
+ 				type: 'leaf',
+ 				data: { type: Parts.BANNER_PART },

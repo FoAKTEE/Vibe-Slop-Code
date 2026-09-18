@@ -1,0 +1,12 @@
+diff --git a/src/vs/workbench/workbench.common.main.ts b/src/vs/workbench/workbench.common.main.ts
+index 2683132becc398cd476efe3b5890c99fb83e5fa7..1917d1e9c9697df208c04de5edfba7dd99cbe8c0 100644
+--- a/src/vs/workbench/workbench.common.main.ts
++++ b/src/vs/workbench/workbench.common.main.ts
+@@ -55,6 +55,7 @@ import './browser/parts/editor/diffEditor.workbench.contribution.js';
+ import './browser/parts/editor/editorParts.js';
+ import './browser/parts/paneCompositePartService.js';
+ import './browser/parts/banner/bannerPart.js';
++import './browser/parts/workspacebar/workspaceBarPart.js'; // vibe: workspace bar
+ import './browser/parts/statusbar/statusbarPart.js';
+ import './browser/parts/titlebar/menubar.contribution.js';
+ 

@@ -1,0 +1,23 @@
+diff --git a/build/lib/stylelint/vscode-known-variables.json b/build/lib/stylelint/vscode-known-variables.json
+index 6c214f21d941fe790698f6d9a213cf76966a5892..132a9c3a6fa48c6feca96dfab0cb6663811593df 100644
+--- a/build/lib/stylelint/vscode-known-variables.json
++++ b/build/lib/stylelint/vscode-known-variables.json
+@@ -939,7 +939,17 @@
+ 		"--vscode-widget-border",
+ 		"--vscode-widget-shadow",
+ 		"--vscode-window-activeBorder",
+-		"--vscode-window-inactiveBorder"
++		"--vscode-window-inactiveBorder",
++		"--vscode-workspaceBar-activeTabBackground",
++		"--vscode-workspaceBar-activeTabBorderTop",
++		"--vscode-workspaceBar-background",
++		"--vscode-workspaceBar-border",
++		"--vscode-workspaceBar-foreground",
++		"--vscode-workspaceBar-hostForeground",
++		"--vscode-workspaceBar-hoverBackground",
++		"--vscode-workspaceBar-inactiveForeground",
++		"--vscode-workspaceBar-liveIndicatorForeground",
++		"--vscode-workspaceBar-remoteHostForeground"
+ 	],
+ 	"others": [
+ 		"--activity-bar-action-height",

@@ -1,0 +1,12 @@
+diff --git a/src/vs/workbench/workbench.web.main.ts b/src/vs/workbench/workbench.web.main.ts
+index cd132e8da5cf49a2a4b043d01bc9b4f9762ddccb..80cca3c64c24e62ec46e9454757fe238cfc83da0 100644
+--- a/src/vs/workbench/workbench.web.main.ts
++++ b/src/vs/workbench/workbench.web.main.ts
+@@ -35,6 +35,7 @@ import './browser/web.main.js';
+ //#region --- workbench services
+ 
+ import './services/integrity/browser/integrityService.js';
++import './services/workspaceBar/browser/workspaceBarService.js'; // vibe: no workspace bar on the web
+ import './services/search/browser/searchService.js';
+ import './services/textfile/browser/browserTextFileService.js';
+ import './services/keybinding/browser/keyboardLayoutService.js';

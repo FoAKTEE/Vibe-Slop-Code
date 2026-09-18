@@ -1,0 +1,12 @@
+diff --git a/src/vs/workbench/services/layout/browser/layoutService.ts b/src/vs/workbench/services/layout/browser/layoutService.ts
+index 45a96404752f4138bf926c6dd96946e86aa76c86..b10cb976005f3af3c1f171d6f07c7dc87aacb5e3 100644
+--- a/src/vs/workbench/services/layout/browser/layoutService.ts
++++ b/src/vs/workbench/services/layout/browser/layoutService.ts
+@@ -21,6 +21,7 @@ export const IWorkbenchLayoutService = refineServiceDecorator<ILayoutService, IW
+ export const enum Parts {
+ 	TITLEBAR_PART = 'workbench.parts.titlebar',
+ 	BANNER_PART = 'workbench.parts.banner',
++	WORKSPACEBAR_PART = 'workbench.parts.workspacebar', // vibe: workspace bar
+ 	ACTIVITYBAR_PART = 'workbench.parts.activitybar',
+ 	SIDEBAR_PART = 'workbench.parts.sidebar',
+ 	PANEL_PART = 'workbench.parts.panel',

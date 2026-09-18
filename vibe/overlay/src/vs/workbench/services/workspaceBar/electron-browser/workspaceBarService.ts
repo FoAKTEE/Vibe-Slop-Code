@@ -3,21 +3,96 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../../nls.js';
-import { ILocalizedString } from '../../../../platform/action/common/action.js';
-import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { localize } from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { registerMainProcessRemoteService } from '../../../../platform/ipc/electron-browser/services.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IWorkspaceBarMainService, WORKSPACE_BAR_CHANNEL_NAME } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarMainService, WORKSPACE_BAR_CHANNEL_NAME } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarService } from '../common/workspaceBarService.js';
 
 // The workspace bar lives in the main process, every window talks to the same service
 registerMainProcessRemoteService(IWorkspaceBarMainService, WORKSPACE_BAR_CHANNEL_NAME);
 
-//#region Configuration
+export class NativeWorkspaceBarService extends Disposable implements IWorkspaceBarService {
+
+	declare readonly _serviceBrand: undefined;
+
+	readonly supported = true;
+	readonly windowId: number;
+	readonly whenReady: Promise<void>;
+
+	private _entries: readonly IWorkspaceBarEntry[] = [];
+	get entries(): readonly IWorkspaceBarEntry[] { return this._entries; }
+
+	private readonly _onDidChangeEntries = this._register(new Emitter<readonly IWorkspaceBarEntry[]>());
+	readonly onDidChangeEntries = this._onDidChangeEntries.event;
+
+	constructor(
+		@IWorkspaceBarMainService private readonly workspaceBarMainService: IWorkspaceBarMainService,
+		@INativeHostService nativeHostService: INativeHostService,
+		@ILogService private readonly logService: ILogService
+	) {
+		super();
+
+		this.windowId = nativeHostService.windowId;
+
+		// Entries that arrive as event are never older than the ones asked for
+		let didReceiveEntries = false;
+		this._register(this.workspaceBarMainService.onDidChangeEntries(entries => {
+			didReceiveEntries = true;
+			this.setEntries(entries);
+		}));
+
+		this.whenReady = this.resolveEntries(() => didReceiveEntries);
+	}
+
+	private async resolveEntries(didReceiveEntries: () => boolean): Promise<void> {
+		try {
+			const entries = await this.workspaceBarMainService.getEntries();
+			if (!didReceiveEntries()) {
+				this.setEntries(entries);
+			}
+		} catch (error) {
+			this.logService.error(error);
+		}
+	}
+
+	private setEntries(entries: readonly IWorkspaceBarEntry[]): void {
+		this._entries = entries;
+		this._onDidChangeEntries.fire(entries);
+	}
+
+	switchTo(entryId: string): Promise<void> {
+		return this.workspaceBarMainService.switchTo(entryId, this.windowId);
+	}
+
+	pin(entryId: string): Promise<void> {
+		return this.workspaceBarMainService.pin(entryId);
+	}
+
+	unpin(entryId: string): Promise<void> {
+		return this.workspaceBarMainService.unpin(entryId);
+	}
+
+	remove(entryId: string): Promise<void> {
+		return this.workspaceBarMainService.remove(entryId);
+	}
+
+	closeEntryWindow(entryId: string): Promise<void> {
+		return this.workspaceBarMainService.closeEntryWindow(entryId);
+	}
+
+	reorder(entryId: string, beforeId?: string): Promise<void> {
+		return this.workspaceBarMainService.reorder(entryId, beforeId);
+	}
+}
+
+registerSingleton(IWorkspaceBarService, NativeWorkspaceBarService, InstantiationType.Delayed);
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
 	'id': 'window',
@@ -33,45 +108,3 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		}
 	}
 });
-
-//#endregion
-
-//#region Actions
-
-abstract class NavigateWorkspaceBarAction extends Action2 {
-
-	constructor(id: string, title: ILocalizedString, private readonly delta: number) {
-		super({ id, title, category: Categories.View, f1: true });
-	}
-
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const workspaceBarService = accessor.get(IWorkspaceBarMainService);
-		const windowId = accessor.get(INativeHostService).windowId;
-
-		const entries = await workspaceBarService.getEntries();
-		if (entries.length === 0) {
-			return;
-		}
-
-		// A window without workspace has no entry: enter at either end
-		const currentIndex = entries.findIndex(entry => entry.windowId === windowId);
-		const nextIndex = currentIndex < 0 ? (this.delta > 0 ? 0 : entries.length - 1) : (currentIndex + this.delta + entries.length) % entries.length;
-		if (nextIndex !== currentIndex) {
-			await workspaceBarService.switchTo(entries[nextIndex].id, windowId);
-		}
-	}
-}
-
-registerAction2(class extends NavigateWorkspaceBarAction {
-	constructor() {
-		super('workbench.action.workspaceBar.next', localize2('workspaceBar.next', "Switch to Next Workspace"), 1);
-	}
-});
-
-registerAction2(class extends NavigateWorkspaceBarAction {
-	constructor() {
-		super('workbench.action.workspaceBar.previous', localize2('workspaceBar.previous', "Switch to Previous Workspace"), -1);
-	}
-});
-
-//#endregion
