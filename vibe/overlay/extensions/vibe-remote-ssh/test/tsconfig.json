@@ -1,0 +1,23 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDir": "..",
+		"noEmit": true,
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"erasableSyntaxOnly": true,
+		"typeRoots": [
+			"../node_modules/@types"
+		],
+		"types": [
+			"node",
+			"ssh2"
+		]
+	},
+	"include": [
+		"./**/*.ts",
+		"../../../src/vscode-dts/vscode.d.ts"
+	]
+}

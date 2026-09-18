@@ -6,7 +6,7 @@
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { isMacintosh, isWindows } from '../../../../base/common/platform.js';
-import { dirname } from '../../../../base/common/resources.js';
+import { dirname, joinPath } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
@@ -18,19 +18,23 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
+import { collectSshConfigHosts, ISshConfigHost } from '../../../../platform/workspaceBar/common/sshConfigHosts.js';
 import { IWorkspaceBarEntry } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { IWorkspaceBarService } from '../../../services/workspaceBar/common/workspaceBarService.js';
-import { closeWorkspaceBarEntry, getAdjacentWorkspaceBarEntry, getWorkspaceBarEntryPath, IWorkspaceBarAddPick, toWorkspaceBarAddPicks } from './workspaceBarViewModel.js';
+import { closeWorkspaceBarEntry, getAdjacentWorkspaceBarEntry, getWorkspaceBarEntryPath, IWorkspaceBarAddPick, toWorkspaceBarAddPicks, toWorkspaceBarSshHostPicks } from './workspaceBarViewModel.js';
 
 export const WORKSPACE_BAR_VISIBLE_SETTING = 'workbench.workspaceBar.visible';
 
@@ -172,6 +176,55 @@ function getConnectCommand(): { readonly id: string } | undefined {
 	return hasRemoteMenu && CommandsRegistry.getCommand(REMOTE_MENU_COMMAND) ? { id: REMOTE_MENU_COMMAND } : undefined;
 }
 
+const SSH_REMOTE_ACTIVATION_EVENT = 'onResolveRemoteAuthority:ssh-remote';
+const SSH_CONFIG_FILE_SETTING = 'remote.SSH.configFile'; // of the extensions that resolve `ssh-remote`
+
+/**
+ * The hosts of the SSH configuration of the user, or none when no
+ * extension of this window is able to connect to them.
+ */
+async function getSshHosts(accessor: ServicesAccessor): Promise<ISshConfigHost[]> {
+	const extensionService = accessor.get(IExtensionService);
+	const fileService = accessor.get(IFileService);
+	const pathService = accessor.get(IPathService);
+	const configurationService = accessor.get(IConfigurationService);
+
+	await extensionService.whenInstalledExtensionsRegistered();
+	if (!extensionService.extensions.some(extension => extension.activationEvents?.includes(SSH_REMOTE_ACTIVATION_EVENT))) {
+		return [];
+	}
+
+	// The configuration is the one of this machine, also in a window that is connected to a host
+	const userHome = pathService.userHome({ preferLocal: true });
+	const configFile = configurationService.getValue<string>(SSH_CONFIG_FILE_SETTING);
+	const config = typeof configFile === 'string' && configFile.trim() ? URI.file(configFile.trim().replace(/^~(?=[\\/])/, userHome.fsPath)) : joinPath(userHome, '.ssh', 'config');
+
+	return collectSshConfigHosts(config, userHome, {
+		readFile: async resource => {
+			try {
+				return (await fileService.readFile(resource)).value.toString();
+			} catch {
+				return undefined; // most users have no SSH configuration
+			}
+		},
+		readFolder: async resource => {
+			try {
+				return (await fileService.resolve(resource)).children?.filter(child => child.isFile).map(child => child.name);
+			} catch {
+				return undefined;
+			}
+		}
+	});
+}
+
+/**
+ * Connects to a host in a window of its own: the window joins the workspace bar
+ * once a folder of the host is opened in it, and this window stays as it is.
+ */
+function connectToHost(hostService: IHostService, remoteAuthority: string): Promise<void> {
+	return hostService.openWindow({ remoteAuthority }); // a window without folder is always a new one
+}
+
 registerAction2(class extends Action2 {
 
 	constructor() {
@@ -194,13 +247,14 @@ registerAction2(class extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const labelService = accessor.get(ILabelService);
 
-		const [recentlyOpened] = await Promise.all([workspacesService.getRecentlyOpened(), workspaceBarService.whenReady]);
+		const [recentlyOpened, sshHosts] = await Promise.all([workspacesService.getRecentlyOpened(), getSshHosts(accessor), workspaceBarService.whenReady]);
 
 		const pick = await quickInputService.pick<IWorkspaceBarAddPick>(toWorkspaceBarAddPicks(recentlyOpened, workspaceBarService.entries, {
 			connectCommand: getConnectCommand(),
+			sshHosts,
 			getParentLabel: uri => labelService.getUriLabel(dirname(uri))
 		}), {
-			placeHolder: localize('workspaceBar.addPlaceholder', "Select a folder or workspace to add to the workspace bar"),
+			placeHolder: localize('workspaceBar.addPlaceholder', "Select a folder, workspace or host to add to the workspace bar"),
 			matchOnDescription: true
 		});
 
@@ -212,6 +266,8 @@ registerAction2(class extends Action2 {
 				return fileDialogService.pickWorkspaceAndOpen({ forceNewWindow: true });
 			case 'command':
 				return commandService.executeCommand(pick.action.commandId);
+			case 'connect':
+				return connectToHost(hostService, pick.action.remoteAuthority);
 			case 'switch': {
 				const entryId = pick.action.entryId;
 				const entry = workspaceBarService.entries.find(candidate => candidate.id === entryId);
@@ -220,6 +276,40 @@ registerAction2(class extends Action2 {
 			}
 			case 'open':
 				return hostService.openWindow([pick.action.openable], { forceNewWindow: true, remoteAuthority: pick.action.remoteAuthority });
+		}
+	}
+});
+
+registerAction2(class extends Action2 {
+
+	constructor() {
+		super({
+			id: 'workbench.action.workspaceBar.connectToSshHost',
+			title: localize2('workspaceBar.connectToSshHost', "Connect to SSH Host..."),
+			category: Categories.View,
+			f1: true,
+			precondition: WorkspaceBarSupportedContext
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const hostService = accessor.get(IHostService);
+		const notificationService = accessor.get(INotificationService);
+
+		const sshHosts = await getSshHosts(accessor);
+		if (sshHosts.length === 0) {
+			notificationService.info(localize('workspaceBar.noSshHosts', "There is no host to connect to: either the SSH configuration names none or no extension is enabled that connects to SSH hosts."));
+			return;
+		}
+
+		const pick = await quickInputService.pick(toWorkspaceBarSshHostPicks(sshHosts), {
+			placeHolder: localize('workspaceBar.connectToSshHostPlaceholder', "Select a host of the SSH configuration to connect to"),
+			matchOnDescription: true
+		});
+
+		if (pick?.action.kind === 'connect') {
+			await connectToHost(hostService, pick.action.remoteAuthority);
 		}
 	}
 });

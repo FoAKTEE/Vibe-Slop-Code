@@ -1,0 +1,14 @@
+diff --git a/.eslint-ignore b/.eslint-ignore
+index cdaa0492014fbec810d0d3751cea3947ff081ad5..a7ada8f30c2b576b24e3651894205e5ccee70ec2 100644
+--- a/.eslint-ignore
++++ b/.eslint-ignore
+@@ -60,3 +60,9 @@
+ # Vendored third-party libraries
+ src/vs/base/common/lit-html/**
+ src/vs/base/common/signals-core/**
++
++# vibe: a copy of open-remote-ssh with its code style, see its PROVENANCE.md
++extensions/vibe-remote-ssh/src/*.ts
++extensions/vibe-remote-ssh/src/common/**
++extensions/vibe-remote-ssh/src/ssh/**
++extensions/vibe-remote-ssh/src/utils/**

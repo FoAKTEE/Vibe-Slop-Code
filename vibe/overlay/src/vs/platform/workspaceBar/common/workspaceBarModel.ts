@@ -93,7 +93,7 @@ function getRemoteHostLabel(authority: string): string {
 	const name = getRemoteHostName(detail);
 	switch (remoteName.toLowerCase()) {
 		case 'ssh-remote':
-			return name;
+			return name.replace(/\\x(?<code>[0-9a-f]{2})/g, (_match, code: string) => String.fromCharCode(parseInt(code, 16))); // upper case travels escaped, see `getSshRemoteAuthority`
 		case 'wsl':
 			return localize('workspaceBar.wslHost', "WSL: {0}", name);
 		case 'dev-container':

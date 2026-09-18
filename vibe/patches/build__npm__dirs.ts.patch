@@ -1,0 +1,12 @@
+diff --git a/build/npm/dirs.ts b/build/npm/dirs.ts
+index 289a469754a5b19f65574351ae7dab317ef7a65d..bdbe0552995a7db7b47adb8425edee87799d1c77 100644
+--- a/build/npm/dirs.ts
++++ b/build/npm/dirs.ts
+@@ -49,6 +49,7 @@ export const dirs = [
+ 	'extensions/tunnel-forwarding',
+ 	'extensions/terminal-suggest',
+ 	'extensions/typescript-language-features',
++	'extensions/vibe-remote-ssh', // vibe: the SSH resolver has dependencies
+ 	'extensions/vscode-api-tests',
+ 	'extensions/vscode-colorize-tests',
+ 	'extensions/vscode-colorize-perf-tests',

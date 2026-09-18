@@ -1,12 +1,13 @@
 diff --git a/build/gulpfile.extensions.ts b/build/gulpfile.extensions.ts
-index dafca7f2adde8d268aa9784dedaa54f2bde8c49e..95943ab1112bc5f4e321586e2ef3b68e3a67a2a9 100644
+index dafca7f2adde8d268aa9784dedaa54f2bde8c49e..1cad0e4638fd6284f1588eeaa7e816bca7415fbf 100644
 --- a/build/gulpfile.extensions.ts
 +++ b/build/gulpfile.extensions.ts
-@@ -86,6 +86,7 @@ const compilations = [
+@@ -86,6 +86,8 @@ const compilations = [
  	'extensions/tunnel-forwarding/tsconfig.json',
  	'extensions/typescript-language-features/web/tsconfig.json',
  	'extensions/typescript-language-features/tsconfig.json',
 +	'extensions/vibe-chandra/tsconfig.json',
++	'extensions/vibe-remote-ssh/tsconfig.json',
  	'extensions/vscode-api-tests/tsconfig.json',
  	'extensions/vscode-colorize-tests/tsconfig.json',
  	'extensions/vscode-colorize-perf-tests/tsconfig.json',

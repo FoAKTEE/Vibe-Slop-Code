@@ -192,6 +192,7 @@ suite('WorkspaceBarViewModel', () => {
 
 		const picks = toWorkspaceBarAddPicks(recentlyOpened, createEntries(), {
 			connectCommand: { id: 'opensshremotes.openEmptyWindow' },
+			sshHosts: [],
 			getParentLabel: uri => `~${uri.path.substring('/Users/me'.length, uri.path.lastIndexOf('/'))}` || '~'
 		});
 
@@ -217,7 +218,26 @@ suite('WorkspaceBarViewModel', () => {
 	});
 
 	test('picks without anything to connect to and without history', () => {
-		const picks = toWorkspaceBarAddPicks({ files: [], workspaces: [] }, [], { connectCommand: undefined, getParentLabel: () => '' });
+		const picks = toWorkspaceBarAddPicks({ files: [], workspaces: [] }, [], { connectCommand: undefined, sshHosts: [], getParentLabel: () => '' });
 		assert.deepStrictEqual(picks.map(pick => pick.label), ['Open Folder...', 'Open Workspace from File...']);
+	});
+
+	test('picks name the hosts of the SSH configuration instead of a generic way to connect', () => {
+		const picks = toWorkspaceBarAddPicks({ files: [], workspaces: [{ folderUri: localA }] }, [], {
+			connectCommand: { id: 'openremotessh.openEmptyWindow' },
+			sshHosts: [{ host: 'anta', hostName: 'anta.example.edu' }, { host: 'Me', hostName: undefined }, { host: 'a+b', hostName: '10.0.0.7' }],
+			getParentLabel: () => '~'
+		});
+
+		assert.deepStrictEqual(picks.map(pick => pick.type === 'separator' ? `--- ${pick.label}` : `${pick.label} | ${pick.description ?? ''} | ${pick.iconClass?.replace('codicon codicon-', '')} | ${pick.action.kind}${pick.action.kind === 'connect' ? ` ${pick.action.remoteAuthority}` : ''}`), [
+			'Open Folder... |  | folder-opened | openFolder',
+			'Open Workspace from File... |  | folder-library | openWorkspace',
+			'--- SSH hosts',
+			'anta | anta.example.edu | remote | connect ssh-remote+anta',
+			'Me |  | remote | connect ssh-remote+\\x4de',
+			'a+b | 10.0.0.7 | remote | connect ssh-remote+7b22686f73744e616d65223a22612b62227d',
+			'--- recently opened',
+			'alpha | ~ | folder | open'
+		]);
 	});
 });

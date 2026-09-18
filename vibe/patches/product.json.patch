@@ -1,8 +1,8 @@
 diff --git a/product.json b/product.json
-index 15f5796e3ac4d41e70df088ea29716626e369273..22240449580070a5f86100b78df1f3ca4906dfae 100644
+index 15f5796e3ac4d41e70df088ea29716626e369273..0c98753dee62022ed7773a6ccda80109a005ba90 100644
 --- a/product.json
 +++ b/product.json
-@@ -1,39 +1,42 @@
+@@ -1,39 +1,48 @@
  {
 -	"nameShort": "Code - OSS",
 -	"nameLong": "Code - OSS",
@@ -61,6 +61,12 @@ index 15f5796e3ac4d41e70df088ea29716626e369273..22240449580070a5f86100b78df1f3ca
 +	"extensionsGallery": {
 +		"serviceUrl": "https://open-vsx.org/vscode/gallery",
 +		"itemUrl": "https://open-vsx.org/vscode/item"
++	},
++	"extensionEnabledApiProposals": {
++		"vibe.vibe-remote-ssh": [
++			"resolvers",
++			"contribViewsRemote"
++		]
 +	},
  	"agentsTelemetryAppName": "agents",
  	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",

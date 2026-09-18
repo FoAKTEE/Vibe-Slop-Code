@@ -130,6 +130,7 @@ suite('WorkspaceBarModel', () => {
 		test('ssh host is labelled by its host name', () => {
 			assert.deepStrictEqual(getWorkspaceBarHost(sshA), { id: 'remote:ssh-remote+myhost', label: 'myhost', isLocal: false, remoteAuthority: 'ssh-remote+myhost' });
 			assert.strictEqual(getWorkspaceBarHost(localA, 'ssh-remote+me@box.example.org').label, 'me@box.example.org');
+			assert.strictEqual(getWorkspaceBarHost(localA, 'ssh-remote+\\x42uild.\\x42ox').label, 'Build.Box', 'upper case travels escaped');
 		});
 
 		test('explicit remote authority wins over the resource', () => {

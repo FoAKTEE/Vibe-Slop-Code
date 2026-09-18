@@ -1,15 +1,16 @@
 diff --git a/eslint.config.js b/eslint.config.js
-index 380730532e41e6e6247774351da9c07deeda6d6f..1bfd7ddf5a83cae88054af98d0cee7d23da73973 100644
+index 380730532e41e6e6247774351da9c07deeda6d6f..a58838e4f525c602821bf3d0228cc3622e460755 100644
 --- a/eslint.config.js
 +++ b/eslint.config.js
-@@ -2938,6 +2938,15 @@ export default defineConfig(
+@@ -2938,6 +2938,16 @@ export default defineConfig(
  			],
  		}
  	},
-+	// vibe-chandra carries SPDX headers
++	// vibe-chandra and vibe-remote-ssh carry SPDX headers
 +	{
 +		files: [
 +			'extensions/vibe-chandra/**',
++			'extensions/vibe-remote-ssh/**',
 +		],
 +		rules: {
 +			'header/header': 'off',

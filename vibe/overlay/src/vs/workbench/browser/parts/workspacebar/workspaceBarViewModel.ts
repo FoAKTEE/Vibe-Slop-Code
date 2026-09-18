@@ -11,6 +11,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { IWindowOpenable } from '../../../../platform/window/common/window.js';
+import { getSshRemoteAuthority, ISshConfigHost } from '../../../../platform/workspaceBar/common/sshConfigHosts.js';
 import { IWorkspaceBarEntry, IWorkspaceBarHost, WorkspaceBarEntryKind } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 import { getWorkspaceBarEntryId, getWorkspaceBarEntryLabel, getWorkspaceBarHost, groupWorkspaceBarEntries } from '../../../../platform/workspaceBar/common/workspaceBarModel.js';
 import { IRecentlyOpened, isRecentFolder, isRecentWorkspace } from '../../../../platform/workspaces/common/workspaces.js';
@@ -180,6 +181,7 @@ export type WorkspaceBarAddAction =
 	{ readonly kind: 'openFolder' } |
 	{ readonly kind: 'openWorkspace' } |
 	{ readonly kind: 'command'; readonly commandId: string } |
+	{ readonly kind: 'connect'; readonly remoteAuthority: string } |
 	{ readonly kind: 'switch'; readonly entryId: string } |
 	{ readonly kind: 'open'; readonly openable: IWindowOpenable & { readonly folderUri?: URI; readonly workspaceUri?: URI }; readonly remoteAuthority: string | undefined };
 
@@ -196,13 +198,18 @@ export interface IWorkspaceBarAddPicksOptions {
 	readonly connectCommand: { readonly id: string } | undefined;
 
 	/**
+	 * The hosts of the SSH configuration, if there is a remote that connects to them.
+	 */
+	readonly sshHosts: readonly ISshConfigHost[];
+
+	/**
 	 * The label of the folder that contains a local resource.
 	 */
 	getParentLabel(uri: URI): string;
 }
 
 /**
- * What can be added to the workspace bar: something to pick from disk, a host to
+ * What can be added to the workspace bar: something to pick from disk, the hosts to
  * connect to when that is possible and the folders and workspaces that were
  * opened recently. Picking what has an entry already switches to it.
  */
@@ -212,7 +219,9 @@ export function toWorkspaceBarAddPicks(recentlyOpened: IRecentlyOpened, entries:
 		{ label: localize('workspaceBar.openWorkspace', "Open Workspace from File..."), iconClass: ThemeIcon.asClassName(Codicon.folderLibrary), action: { kind: 'openWorkspace' } }
 	];
 
-	if (options.connectCommand) {
+	if (options.sshHosts.length > 0) {
+		picks.push({ type: 'separator', label: localize('workspaceBar.sshHosts', "SSH hosts") }, ...toWorkspaceBarSshHostPicks(options.sshHosts));
+	} else if (options.connectCommand) {
 		picks.push({ label: localize('workspaceBar.connectToHost', "Connect to Host..."), iconClass: ThemeIcon.asClassName(Codicon.remote), action: { kind: 'command', commandId: options.connectCommand.id } });
 	}
 
@@ -251,6 +260,19 @@ export function toWorkspaceBarAddPicks(recentlyOpened: IRecentlyOpened, entries:
 	}
 
 	return picks;
+}
+
+/**
+ * The hosts of the SSH configuration. Picking one connects to it: the
+ * window has no folder yet, its file dialog is the one of the host.
+ */
+export function toWorkspaceBarSshHostPicks(sshHosts: readonly ISshConfigHost[]): IWorkspaceBarAddPick[] {
+	return sshHosts.map(sshHost => ({
+		label: sshHost.host,
+		description: sshHost.hostName,
+		iconClass: ThemeIcon.asClassName(Codicon.remote),
+		action: { kind: 'connect', remoteAuthority: getSshRemoteAuthority(sshHost.host) }
+	}));
 }
 
 //#endregion

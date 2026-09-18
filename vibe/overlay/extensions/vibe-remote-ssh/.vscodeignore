@@ -1,0 +1,11 @@
+test/**
+src/**
+!src/scripts/**
+tsconfig*.json
+**/*.tsbuildinfo
+out/**
+esbuild*.mts
+.gitignore
+.npmrc
+package-lock.json
+PROVENANCE.md
