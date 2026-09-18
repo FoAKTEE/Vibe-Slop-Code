@@ -2,6 +2,7 @@
 
 import type { GraphNode } from '../model/types.ts';
 import { clear, svg } from './dom.ts';
+import { FAR_LABEL_SIZE, SUB_TEXT_SIZE } from './fitPolicy.ts';
 import { glyphParts } from './glyphs.ts';
 import type { Layout, PlacedNode } from './layout.ts';
 import { estimateWidth, fit, wrapTwo } from './text.ts';
@@ -70,14 +71,14 @@ function drawNode(node: GraphNode, box: PlacedNode, ready: boolean, showPaper: b
 		svg('text', { class: 'vc-label', x: 26, y: 19 }, fit(node.label, w - 34, 12)),
 	);
 	// Zoomed out, the two text rows give way to one larger label (wrapped if need be) so that the fitted graph stays readable.
-	const lines = wrapTwo(node.label, w - 34, 14.5);
+	const lines = wrapTwo(node.label, w - 34, FAR_LABEL_SIZE);
 	lines.forEach((line, i) => group.append(svg('text', { class: 'vc-label vc-label-far', x: 26, y: lines.length === 1 ? 27 : 18.5 + i * 17 }, line)));
 	if (node.trialStats.failStreak > 0) {
 		group.append(svg('circle', { class: 'vc-alert', cx: w - 1, cy: 1, r: 5 }));
 	}
 
 	const badges = badgeParts(node);
-	const badgeWidth = badges.reduce((sum, b) => sum + estimateWidth(b.text, 10.5) + 5, 0);
+	const badgeWidth = badges.reduce((sum, b) => sum + estimateWidth(b.text, SUB_TEXT_SIZE) + 5, 0);
 	if (badges.length) {
 		const text = svg('text', { class: 'vc-badges', x: w - 8, y: 35, 'text-anchor': 'end' });
 		badges.forEach((b, i) => text.append(svg('tspan', b.failing ? { class: 'vc-failing' } : {}, (i ? ' ' : '') + b.text)));
@@ -87,7 +88,7 @@ function drawNode(node: GraphNode, box: PlacedNode, ready: boolean, showPaper: b
 	const lead = (showPaper && node.paper ? `${node.paper} · ` : '') + (node.taskId ? `${node.taskId} · ` : '');
 	const sub = svg('text', { class: 'vc-sub', x: 10, y: 35 });
 	const room = w - 18 - badgeWidth;
-	const fittedLead = estimateWidth(lead + word, 10.5) > room ? fit(lead, Math.max(0, room - estimateWidth(word, 10.5)), 10.5) : lead;
+	const fittedLead = estimateWidth(lead + word, SUB_TEXT_SIZE) > room ? fit(lead, Math.max(0, room - estimateWidth(word, SUB_TEXT_SIZE)), SUB_TEXT_SIZE) : lead;
 	sub.append(fittedLead, svg('tspan', { class: 'vc-word' }, word));
 	group.append(sub);
 	return group;

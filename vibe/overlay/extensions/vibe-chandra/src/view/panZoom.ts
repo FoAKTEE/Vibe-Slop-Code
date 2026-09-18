@@ -1,20 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-export interface Box {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-}
+import { MIN_SCALE, placeView, type Box, type Insets, type Size, type ViewTransform } from './fitPolicy.ts';
 
-export interface Insets {
-	top: number;
-	right: number;
-	bottom: number;
-	left: number;
-}
+export type { Box, Insets };
 
-const MIN_SCALE = 0.04;
 const MAX_SCALE = 2.5;
 const DRAG_THRESHOLD = 4;
 
@@ -57,9 +46,13 @@ export class PanZoom {
 		return this.moved;
 	}
 
-	/** True once the user panned or zoomed since the last `fit`: their framing, not ours, and worth keeping. */
+	/** True once the user panned or zoomed since the last `place`: their framing, not ours, and worth keeping. */
 	get adjusted(): boolean {
 		return this.userAdjusted;
+	}
+
+	get size(): Size {
+		return { width: this.surface.clientWidth, height: this.surface.clientHeight };
 	}
 
 	zoomBy(factor: number, cx = this.surface.clientWidth / 2, cy = this.surface.clientHeight / 2, animate = true): void {
@@ -72,11 +65,19 @@ export class PanZoom {
 
 	/** Frames `box` (graph coordinates) inside the surface minus `insets`, never magnifying beyond `maxScale`. */
 	fit(box: Box, insets: Insets, maxScale: number, animate: boolean): void {
+		this.place(placeView({ bounds: box, viewport: this.size, insets, anchors: [], wholeFloor: 0, floor: 0, maxScale }), animate);
+	}
+
+	/** Moves to a framing of ours (see `placeView`); it stays ours until the user pans or zooms. */
+	place(view: ViewTransform, animate: boolean): void {
 		this.userAdjusted = false;
-		const availableW = Math.max(40, this.surface.clientWidth - insets.left - insets.right);
-		const availableH = Math.max(40, this.surface.clientHeight - insets.top - insets.bottom);
-		const k = Math.max(MIN_SCALE, Math.min(maxScale, availableW / Math.max(1, box.w), availableH / Math.max(1, box.h)));
-		this.moveTo(insets.left + (availableW - box.w * k) / 2 - box.x * k, insets.top + (availableH - box.h * k) / 2 - box.y * k, k, animate);
+		this.moveTo(view.tx, view.ty, view.scale, animate);
+	}
+
+	/** Pans by screen pixels on the user's behalf. */
+	panBy(dx: number, dy: number): void {
+		this.userAdjusted = true;
+		this.moveTo(this.target.x + dx, this.target.y + dy, this.target.k, true);
 	}
 
 	/** Pans just enough to bring `box` into the area left free by `insets`; the scale is kept. */

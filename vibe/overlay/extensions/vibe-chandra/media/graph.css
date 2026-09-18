@@ -314,7 +314,10 @@ body.vscode-high-contrast:not(.vscode-high-contrast-light) .vc-root {
 	stroke-width: 1.5;
 }
 
-/* Level of detail: zoomed out one larger label replaces the two text rows; far away cards become status tiles. */
+/*
+ * Level of detail: zoomed out one larger label replaces the two text rows; far away cards become status tiles.
+ * The far label's size is FAR_LABEL_SIZE in src/view/fitPolicy.ts: the legibility floor is derived from it.
+ */
 .vc-label-far,
 .vc-root.vc-far .vc-sub,
 .vc-root.vc-far .vc-badges,
@@ -620,6 +623,69 @@ body.vscode-high-contrast:not(.vscode-high-contrast-light) .vc-root {
 	width: 22px;
 }
 
+/*
+ * Overflow hints: how many nodes lie beyond each edge of the view; click to move there. They sit in the bands
+ * that a framing keeps free under the toolbar and above the legend, so they do not cover the nodes of a view
+ * that was just opened.
+ */
+.vc-more {
+	position: absolute;
+	height: 20px;
+	padding: 0 8px;
+	border: 1px solid var(--vc-border);
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--vc-widget) 86%, transparent);
+	color: var(--vc-muted);
+	font: inherit;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	cursor: pointer;
+	z-index: 1;
+}
+
+.vc-more:hover {
+	border-color: var(--vc-muted);
+	color: var(--vc-fg);
+}
+
+.vc-more:focus-visible {
+	border-color: var(--vc-accent);
+	outline: none;
+}
+
+.vc-more-left,
+.vc-more-right,
+.vc-more-top {
+	top: 48px;
+}
+
+.vc-more-left {
+	left: 10px;
+}
+
+.vc-more-right {
+	right: 10px;
+}
+
+.vc-more-top,
+.vc-more-bottom {
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.vc-more-bottom {
+	bottom: 46px;
+}
+
+.vc-banner:not([hidden]) ~ .vc-more-top {
+	top: 80px;
+}
+
+.vc-root.vc-legend-tall .vc-more-bottom {
+	bottom: 70px;
+}
+
 .vc-key {
 	display: inline-block;
 	min-width: 16px;
@@ -681,6 +747,23 @@ body.vscode-high-contrast:not(.vscode-high-contrast-light) .vc-root {
 
 .vc-root.vc-narrow.vc-detail .vc-legend {
 	bottom: calc(46% + 10px);
+}
+
+.vc-root.vc-detail:not(.vc-narrow) .vc-more-right {
+	right: 350px;
+}
+
+.vc-root.vc-detail:not(.vc-narrow) .vc-more-top,
+.vc-root.vc-detail:not(.vc-narrow) .vc-more-bottom {
+	left: calc(50% - 170px);
+}
+
+.vc-root.vc-narrow.vc-detail .vc-more-bottom {
+	bottom: calc(46% + 46px);
+}
+
+.vc-root.vc-narrow.vc-detail.vc-legend-tall .vc-more-bottom {
+	bottom: calc(46% + 70px);
 }
 
 .vc-root.vc-narrow .vc-stats,
@@ -904,6 +987,7 @@ body.vscode-high-contrast:not(.vscode-high-contrast-light) .vc-root {
 
 .vc-root.vc-presenting .vc-toolbar,
 .vc-root.vc-presenting .vc-legend,
+.vc-root.vc-presenting .vc-more,
 .vc-root.vc-presenting .vc-panel,
 .vc-root.vc-presenting .vc-results,
 .vc-root.vc-presenting .vc-help {

@@ -21,14 +21,17 @@ const self = (): LedgerInput => ledgers(selfNodes, selfTrials, selfClaims);
 const vibe = (): LedgerInput => ledgers(vibeNodes);
 const cyclic = (): LedgerInput => ledgers(synthNodes, synthTrials, synthClaims, synthResults);
 
-const fixtures: Record<string, () => Hypergraph> = {
-	self: () => foldLedgers(self()),
-	vibe: () => foldLedgers(vibe()),
-	cyclic: () => foldLedgers(cyclic()),
-	all: () => foldLedgers([self(), vibe(), cyclic()]),
-	stress: () => foldLedgers(stressInput(Number(params.get('n')) || 500, 7)),
-	empty: () => foldLedgers({ knowledge: [] }),
+const papers: Record<string, () => LedgerInput> = {
+	self, vibe, cyclic,
+	stress: () => stressInput(Number(params.get('n')) || 500, 7),
+	empty: () => ({ knowledge: [] }),
 };
+
+/** `self`, or several papers merged into one graph: `self+vibe` (a `+` in a query string reads as a space), `all`. */
+function fixture(name: string): Hypergraph {
+	const names = name === 'all' ? ['self', 'vibe', 'cyclic'] : name.split(/[\s+]+/).filter(part => Object.hasOwn(papers, part));
+	return foldLedgers((names.length ? names : ['self']).map(part => papers[part]()));
+}
 
 const root = document.getElementById('graph')!;
 const theme = params.get('theme');
@@ -44,7 +47,7 @@ const host: Host = {
 		console.log('[view → host]', JSON.stringify(message));
 		if (message.type === 'ready') {
 			const t0 = performance.now();
-			const graph = (fixtures[params.get('fixture') ?? 'self'] ?? fixtures.self)();
+			const graph = fixture(params.get('fixture') ?? 'self');
 			deliver({ type: 'graph', graph });
 			console.log(`[harness] ${graph.nodes.length} nodes folded, laid out and drawn in ${(performance.now() - t0).toFixed(1)} ms`);
 		}

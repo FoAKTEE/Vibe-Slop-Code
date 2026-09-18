@@ -3,6 +3,7 @@
 import { downstream, indexGraph, routeBetween, upstream, visibleSubgraph, type GraphIndex, type Route } from '../model/derived.ts';
 import { NODE_STATUSES, type GraphNode, type Hypergraph } from '../model/types.ts';
 import { clear, el, icon, svg } from './dom.ts';
+import { FAR_SCALE, LEGIBLE_SCALE, TINY_SCALE, WHOLE_SCALE, countOverflow, pickAnchors, placeView, type Overflow } from './fitPolicy.ts';
 import { glyphIcon, ringIcon } from './glyphs.ts';
 import { formatHash, parseHash, type Reach, type ViewState } from './hashState.ts';
 import type { FlowDirection, Host } from './host.ts';
@@ -19,11 +20,22 @@ export interface GraphView {
 
 const EMPTY_GRAPH: Hypergraph = { papers: [], nodes: [], hyperedges: [], cycles: { cyclic: false, sccs: [], feedbackEdges: [] }, frontier: [], statusCounts: {}, warnings: [] };
 const PANEL_WIDTH = 340;
+/** The share of a narrow view's height that the detail panel takes (graph.css: `.vc-narrow .vc-panel`). */
+const PANEL_SHARE = 0.46;
+/** Below this width the view is an overview beside the node tree: compact chrome, always fitted whole. */
+const NARROW_WIDTH = 680;
+/** Kept free between the toolbar or the legend and a fitted graph. */
+const CHROME_GAP = 8;
 const MAX_RESULTS = 12;
+
+const SIDES = ['left', 'right', 'top', 'bottom'] as const;
+const SIDE_TEXT: Record<typeof SIDES[number], [prefix: string, suffix: string, where: string]> = {
+	left: ['\u2190 ', ' more', 'to the left'], right: ['', ' more \u2192', 'to the right'], top: ['\u2191 ', ' more', 'above'], bottom: ['\u2193 ', ' more', 'below'],
+};
 
 const KEYS: [string, string][] = [
 	['/', 'search nodes, Enter jumps'], ['click', 'focus a node: light its upstream and downstream reach'], ['U  D', 'restrict the reach to upstream / downstream'],
-	['R', 'route probe: pick a second node'], ['← → ↑ ↓', 'walk to a neighbour'], ['+  \u2212  0', 'zoom in / out / fit'], ['T', 'left-to-right or top-down'],
+	['R', 'route probe: pick a second node'], ['← → ↑ ↓', 'walk to a neighbour'], ['+  \u2212  0', 'zoom in / out / fit everything; 0 again: back to the readable view'], ['T', 'left-to-right or top-down'],
 	['I', 'show retired and amended nodes'], ['F', 'presentation: hide the chrome and fit'], ['Esc', 'step back: route, focus, lens'],
 ];
 
@@ -46,7 +58,9 @@ class View implements GraphView {
 	private readonly search: HTMLInputElement;
 	private readonly results: HTMLElement;
 	private readonly stats: HTMLElement;
+	private readonly toolbar: HTMLElement;
 	private readonly legend: HTMLElement;
+	private readonly more: Record<typeof SIDES[number], HTMLButtonElement>;
 	private readonly banner: HTMLElement;
 	private readonly panel: HTMLElement;
 	private readonly help: HTMLElement;
@@ -68,6 +82,8 @@ class View implements GraphView {
 	private matches: GraphNode[] = [];
 	private selected = 0;
 	private framed = false;
+	/** Set by Fit: the user asked for everything, so our own re-framing keeps showing everything. */
+	private overview = false;
 	/** Set when a graph arrived before the container had a size (a webview that is still hidden). */
 	private frameWhenSized = false;
 
@@ -83,8 +99,9 @@ class View implements GraphView {
 		this.viewport = svg('g', { class: 'vc-viewport' });
 		this.surface = svg('svg', { class: 'vc-svg', role: 'application', 'aria-label': 'Chandra workflow graph' }, this.viewport);
 		this.panZoom = new PanZoom(this.surface, this.viewport, k => {
-			root.classList.toggle('vc-far', k < 0.8);
-			root.classList.toggle('vc-tiny', k < 0.3);
+			root.classList.toggle('vc-far', k < FAR_SCALE);
+			root.classList.toggle('vc-tiny', k < TINY_SCALE);
+			this.renderOverflow();
 		});
 
 		this.search = el('input', 'vc-search');
@@ -94,8 +111,8 @@ class View implements GraphView {
 		this.search.setAttribute('aria-label', 'Search nodes');
 		this.directionButton = this.button('', 'Toggle left-to-right / top-down (T)', () => this.update({ direction: this.state.direction === 'lr' ? 'td' : 'lr' }));
 		this.stats = el('span', 'vc-stats');
-		const toolbar = el('div', 'vc-toolbar', this.search,
-			this.button(icon('M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4'), 'Fit (0)', () => this.frame(true)),
+		this.toolbar = el('div', 'vc-toolbar', this.search,
+			this.button(icon('M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4'), 'Fit Everything (0)', () => this.fitEverything()),
 			this.button(icon('M3 8h10'), 'Zoom out (\u2212)', () => this.panZoom.zoomBy(1 / 1.3)),
 			this.button(icon('M3 8h10M8 3v10'), 'Zoom in (+)', () => this.panZoom.zoomBy(1.3)),
 			this.directionButton,
@@ -113,10 +130,17 @@ class View implements GraphView {
 		this.banner.hidden = true;
 		this.banner.setAttribute('role', 'status');
 		this.legend = el('div', 'vc-legend');
+		const more = (side: typeof SIDES[number]): HTMLButtonElement => {
+			const chip = el('button', `vc-more vc-more-${side}`);
+			chip.hidden = true;
+			chip.addEventListener('click', () => this.panTowards(side));
+			return chip;
+		};
+		this.more = { left: more('left'), right: more('right'), top: more('top'), bottom: more('bottom') };
 		this.panel = el('aside', 'vc-panel');
 		this.panel.hidden = true;
 		this.empty = el('div', 'vc-empty', 'Waiting for the ledgers…');
-		root.append(this.surface, this.empty, toolbar, this.results, this.help, this.banner, this.legend, this.panel);
+		root.append(this.surface, this.empty, this.toolbar, this.results, this.help, this.banner, ...SIDES.map(side => this.more[side]), this.legend, this.panel);
 
 		this.surface.addEventListener('click', e => this.onSurfaceClick(e));
 		root.addEventListener('keydown', e => this.onKey(e));
@@ -125,10 +149,12 @@ class View implements GraphView {
 		this.search.addEventListener('blur', () => setTimeout(() => this.results.hidden = true, 120));
 		window.addEventListener('hashchange', this.onHashChange);
 		this.resizeObserver = new ResizeObserver(() => {
-			root.classList.toggle('vc-narrow', root.clientWidth < 680);
+			root.classList.toggle('vc-narrow', root.clientWidth < NARROW_WIDTH);
 			if (this.frameWhenSized && this.surface.clientWidth > 50) {
 				this.frame(false);
 			}
+			this.measureLegend();
+			this.renderOverflow();
 		});
 		this.resizeObserver.observe(root);
 
@@ -313,6 +339,8 @@ class View implements GraphView {
 				onFocus: id => this.focus(id), onOpen: target => this.host.post({ type: 'open', target }), onClose: () => this.update({ focus: undefined, route: undefined }),
 			});
 		}
+		this.measureLegend();
+		this.renderOverflow();
 	}
 
 	private passesLens(node: GraphNode): boolean {
@@ -524,7 +552,7 @@ class View implements GraphView {
 			case '?': this.help.hidden = !this.help.hidden; break;
 			case '+': case '=': this.panZoom.zoomBy(1.3); break;
 			case '-': case '_': this.panZoom.zoomBy(1 / 1.3); break;
-			case '0': this.frame(true); break;
+			case '0': this.fitEverything(); break;
 			case 'Enter': case ' ':
 				if (!onNode) {
 					return;
@@ -603,13 +631,28 @@ class View implements GraphView {
 
 	// --- framing ---------------------------------------------------------------------------------------
 
+	/** The part of the surface that lies under the detail panel. */
+	private covered(): Insets {
+		const open = !this.panel.hidden && !this.root.classList.contains('vc-presenting');
+		const narrow = this.root.clientWidth < NARROW_WIDTH;
+		return { top: 0, left: 0, right: open && !narrow ? PANEL_WIDTH : 0, bottom: open && narrow ? this.root.clientHeight * PANEL_SHARE : 0 };
+	}
+
+	/** The room a framing keeps free: the toolbar and the legend as high as they are right now, and the detail panel. */
 	private insets(): Insets {
 		if (this.root.classList.contains('vc-presenting')) {
 			return { top: 24, right: 24, bottom: 24, left: 24 };
 		}
-		const narrow = this.root.clientWidth < 680;
-		const open = !this.panel.hidden;
-		return { top: 50, left: 18, right: 18 + (open && !narrow ? PANEL_WIDTH : 0), bottom: open && narrow ? this.root.clientHeight * 0.46 + 12 : 48 };
+		// The legend wraps in a narrow view and sits above the detail panel there: measured from its top edge down.
+		return {
+			top: this.toolbar.offsetTop + this.toolbar.offsetHeight + CHROME_GAP, left: 18, right: 18 + this.covered().right,
+			bottom: this.root.clientHeight - this.legend.offsetTop + CHROME_GAP,
+		};
+	}
+
+	/** A legend that wrapped pushes the hint above it one row up (the view writes no styles, only classes). */
+	private measureLegend(): void {
+		this.root.classList.toggle('vc-legend-tall', this.legend.offsetHeight > 40);
 	}
 
 	private boxOf(ids: Iterable<string>): Box | undefined {
@@ -626,7 +669,12 @@ class View implements GraphView {
 		return Number.isFinite(x0) ? { x: x0 - 30, y: y0 - 30, w: x1 - x0 + 60, h: y1 - y0 + 60 } : undefined;
 	}
 
-	/** Frames what matters right now: the route, else the focused reach, else the whole graph. */
+	/**
+	 * Frames what matters right now: the route, else the focused reach, else the whole graph. A subject too
+	 * large to read as a whole is not shrunk to fit: the view opens at the legibility floor on the start of the
+	 * route, on the focused node, or on the frontier instead (`placeView`). Fit lifts that, and so does a narrow
+	 * view, which is an overview by design (status tiles beside the node tree).
+	 */
 	private frame(animate: boolean): void {
 		const scene = this.scene;
 		this.frameWhenSized = this.surface.clientWidth <= 50;
@@ -634,13 +682,62 @@ class View implements GraphView {
 			return;
 		}
 		const focus = this.state.focus;
-		const subject = this.route ? this.boxOf(this.route.corridor)
-			: focus !== undefined && scene.placed.has(focus) ? this.boxOf([focus, ...(this.state.reach === 'downstream' ? [] : upstream(this.index, focus)), ...(this.state.reach === 'upstream' ? [] : downstream(this.index, focus))])
-				: undefined;
-		this.panZoom.fit(subject ?? { x: 0, y: 0, w: scene.layout.width, h: scene.layout.height }, this.insets(), 1.1, animate);
+		const boxes = (ids: readonly string[]): Box[] => ids.map(id => scene.placed.get(id)).filter(box => box !== undefined);
+		let bounds: Box | undefined, anchors: Box[];
+		if (this.route) {
+			bounds = this.boxOf(this.route.corridor);
+			anchors = boxes(this.route.path);
+		} else if (focus !== undefined && scene.placed.has(focus)) {
+			bounds = this.boxOf([focus, ...(this.state.reach === 'downstream' ? [] : upstream(this.index, focus)), ...(this.state.reach === 'upstream' ? [] : downstream(this.index, focus))]);
+			anchors = boxes([focus]);
+		} else {
+			anchors = pickAnchors([...scene.placed.values()].map(box => {
+				const node = this.index.byId.get(box.id)!;
+				return { box, layer: box.layer, ready: this.frontier.has(box.id), open: node.active && !node.ghost && node.status !== 'solid' };
+			}));
+		}
+		const everything = this.overview || this.root.clientWidth < NARROW_WIDTH || this.root.classList.contains('vc-presenting');
+		this.panZoom.place(placeView({
+			bounds: bounds ?? { x: 0, y: 0, w: scene.layout.width, h: scene.layout.height }, viewport: this.panZoom.size, insets: this.insets(),
+			anchors, wholeFloor: everything ? 0 : WHOLE_SCALE, floor: LEGIBLE_SCALE, maxScale: 1.1,
+		}), animate);
 		if (!animate) {
 			this.panZoom.flush();
 		}
+	}
+
+	/** Fit means everything. Pressed again on the untouched overview, it returns to the readable view. */
+	private fitEverything(): void {
+		this.overview = !(this.overview && !this.panZoom.adjusted);
+		this.frame(true);
+	}
+
+	// --- overflow hints ----------------------------------------------------------------------------------
+
+	/** Says how many nodes lie beyond each edge of the view; a graph opened at the legibility floor rarely shows all of itself. */
+	private renderOverflow(): void {
+		const scene = this.scene;
+		const counts: Overflow | undefined = scene && countOverflow(scene.placed.values(), { scale: this.panZoom.k, tx: this.panZoom.x, ty: this.panZoom.y }, this.panZoom.size, this.covered());
+		for (const side of SIDES) {
+			const chip = this.more[side];
+			const count = counts?.[side] ?? 0;
+			const [prefix, suffix, where] = SIDE_TEXT[side];
+			const text = `${prefix}${count}${suffix}`;
+			if (count && chip.textContent !== text) {
+				chip.textContent = text;
+				chip.title = `${count} more node${count === 1 ? '' : 's'} ${where}: click to move there`;
+				chip.setAttribute('aria-label', chip.title);
+			}
+			chip.hidden = count === 0;
+		}
+	}
+
+	private panTowards(side: typeof SIDES[number]): void {
+		const { width, height } = this.panZoom.size;
+		const insets = this.insets();
+		const stepX = 0.7 * (width - insets.left - insets.right), stepY = 0.7 * (height - insets.top - insets.bottom);
+		this.panZoom.panBy(side === 'left' ? stepX : side === 'right' ? -stepX : 0, side === 'top' ? stepY : side === 'bottom' ? -stepY : 0);
+		this.root.focus();
 	}
 
 	private revealNode(id: string): void {
