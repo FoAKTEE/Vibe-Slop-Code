@@ -65,8 +65,10 @@ the bundled CLI's version/commit against `upstream.json`. One `ok:` line per che
 `install-cli.sh` symlinks `bin/vibe` into the first writable of `$VIBE_BIN_DIR`,
 `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`; `code` is never touched and sudo
 is never used. `vibe --vibe-which` names the backend it resolves to — the packaged app
-when there is one, else the dev build. To undo: `install-cli.sh --uninstall` removes the
-symlink, and `rm -rf vibe/VSCode-*` removes the app.
+when there is one, else the dev build. When several `VSCode-<platform>-<arch>*` folders
+sit side by side, the newest bundle wins (`--vibe-which` lists the rest as `candidates:`,
+`package.sh` names them, and neither deletes anything). To undo: `install-cli.sh
+--uninstall` removes the symlink, and `rm -rf vibe/VSCode-*` removes the app.
 
 ## Remote server
 
@@ -110,7 +112,30 @@ feature does not.
 Install is upload, not download: there is no URL that hosts this server, and many hosts
 have no outbound internet. On connect the SSH resolver looks for the tarball that matches
 the client's commit, uploads it over the connection it already has and unpacks it into
-`~/.vibe-server/bin/<commit>/`.
+`~/.vibe-server/bin/<commit>/`. It searches the setting `remote.SSH.vibeServerTarball`,
+`$VIBE_SERVER_DIR`, a `server` folder next to the app and `~/.vibe/servers/` — the last is
+the only one an app copied to `/Applications` has, so `build-server.sh` symlinks the tarball
+and its `.sha256` there (`$VIBE_SERVERS_DIR`; `--no-link` skips it, `--link-only` is that
+step alone for a tarball that is already built, and no build is ever overwritten).
+
+## Connect to an SSH host
+
+Hosts come from `~/.ssh/config`, with no per-host setup: the workspace bar's `+` lists them
+under *SSH hosts*, the Remote Explorer shows the same list, and the command is
+`workbench.action.workspaceBar.connectToSshHost` ("Connect to SSH Host…"). Picking one opens
+an `SSH: <host>` window in the frame, where Open Folder browses the remote disk.
+
+The first connect to a host uploads the server over the SSH connection (~200 MB, under a
+minute on a fast link) and unpacks it into `~/.vibe-server`; every later connect finds it
+there and takes seconds. `~/.vscode-server` is never touched, so a host you also use with
+VS Code keeps working.
+
+A new upstream pin means a new commit, hence a new server: run `build-server.sh` again and
+the next connect uploads it. Older builds under `~/.vibe-server/bin/` on the host are just
+disk space and can be deleted.
+
+Limits so far: linux-x64 hosts only (`--arch arm64` builds the other one), and only
+key/agent authentication has been used — password/2FA prompts and `ProxyJump` are untested.
 
 ## Bumping the upstream pin
 

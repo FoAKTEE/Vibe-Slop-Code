@@ -6,10 +6,11 @@ Three things are checked here, all of them cheap and hermetic:
     behave: install / re-install / refuse / --force / --uninstall against a
     throwaway `VIBE_BIN_DIR`, never a real system directory.
   * `vibe --vibe-which` resolves its own location THROUGH a symlink (macOS has
-    no `readlink -f`), reports the dev backend of the root it lands in, and
-    honours a `$VIBE_APP` override pointed at a fake `.app` bundle. The dev
-    cases run against a throwaway root: next to the real checkout a packaged
-    bundle may exist, and it legitimately wins over the dev build.
+    no `readlink -f`), reports the dev backend of the root it lands in, picks
+    the newest of the packaged bundles it finds, and honours a `$VIBE_APP`
+    override pointed at a fake `.app` bundle. The dev cases run against a
+    throwaway root: next to the real checkout a packaged bundle may exist, and
+    it legitimately wins over the dev build.
   * `vibe/vscode/product.json` — only when the gitignored upstream checkout is
     present — carries the Vibe identity keys and the Open VSX gallery.
 """
@@ -30,6 +31,11 @@ INSTALL_CLI = VIBE / "scripts" / "install-cli.sh"
 PRODUCT_JSON = VIBE / "vscode" / "product.json"
 
 APP_NAME = "Vibe Studio Code.app"
+# The date the darwin packaging task stamps the files it copies with: every build
+# writes the same one, so no file inside a bundle says when the bundle was made.
+PACKAGED_EPOCH = 315532800  # 1980-01-01
+OLDER = 1600000000
+NEWER = 1700000000
 
 
 def run(cmd: list[str], env: dict[str, str] | None = None,
@@ -41,13 +47,29 @@ def run(cmd: list[str], env: dict[str, str] | None = None,
 
 def make_fake_app(root: Path) -> Path:
     """A stand-in for a packaged bundle: the darwin gulp task ships the CLI at
-    `Contents/Resources/app/bin/code` (a fixed name, not `applicationName`)."""
+    `Contents/Resources/app/bin/code` (a fixed name, not `applicationName`) and
+    stamps `Contents/Info.plist` with the same fixed date in every build."""
     app = root / APP_NAME
     cli = app / "Contents" / "Resources" / "app" / "bin" / "code"
     cli.parent.mkdir(parents=True)
     cli.write_text("#!/usr/bin/env bash\necho fake-app-cli \"$@\"\n", encoding="utf-8")
     cli.chmod(0o755)
+    plist = app / "Contents" / "Info.plist"
+    plist.write_text("<plist/>\n", encoding="utf-8")
+    os.utime(plist, (PACKAGED_EPOCH, PACKAGED_EPOCH))
     return app
+
+
+def make_packaged_root(root: Path, bundles: dict[str, int]) -> Path:
+    """A vibe root holding `bin/vibe` and one packaged bundle per folder name, each
+    aged by the mtime of its `Contents` — the only thing that differs between two
+    builds, since the files inside carry the packaging task's fixed date."""
+    (root / "bin").mkdir(parents=True)
+    shutil.copy2(BIN_VIBE, root / "bin" / "vibe")
+    for name, when in bundles.items():
+        app = make_fake_app(root / name)
+        os.utime(app / "Contents", (when, when))
+    return root
 
 
 def make_dev_root(root: Path) -> Path:
@@ -118,6 +140,54 @@ def test_which_through_symlink_chain(tmp_path: Path) -> None:
     second.symlink_to(first)
     fields = which_fields(run([str(second), "--vibe-which"], cwd=tmp_path))
     assert fields["checkout"] == str(root / "vscode")
+
+
+@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
+                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.parametrize("newest", ["VSCode-darwin-arm64", "VSCode-darwin-arm64.next"])
+def test_which_picks_the_newest_packaged_bundle(tmp_path: Path, newest: str) -> None:
+    """Two bundles side by side: age decides, never the order the glob happens to
+    produce — a fresh package must not lose to a stale copy kept under another name."""
+    names = ["VSCode-darwin-arm64", "VSCode-darwin-arm64.next"]
+    root = make_packaged_root(tmp_path / "vibe",
+                              {name: (NEWER if name == newest else OLDER) for name in names})
+    fields = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    assert fields["backend"] == "app"
+    assert fields["app"] == str(root / newest / APP_NAME)
+    assert fields["target"] == str(root / newest / APP_NAME / "Contents/Resources/app/bin/code")
+
+
+@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
+                    reason="a real /Applications bundle would legitimately win")
+def test_which_lists_the_candidates_newest_first(tmp_path: Path) -> None:
+    """The bundles that lost are named too, so a stale one is visible."""
+    root = make_packaged_root(tmp_path / "vibe", {"VSCode-darwin-arm64": OLDER,
+                                                  "VSCode-darwin-arm64.next": NEWER})
+    fields = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    listed = [part.strip() for part in fields["candidates"].split("|")]
+    assert listed == [str(root / "VSCode-darwin-arm64.next" / APP_NAME),
+                      str(root / "VSCode-darwin-arm64" / APP_NAME)]
+
+
+@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
+                    reason="a real /Applications bundle would legitimately win")
+def test_which_resolves_a_tie_the_same_way_every_time(tmp_path: Path) -> None:
+    root = make_packaged_root(tmp_path / "vibe", {"VSCode-darwin-arm64": OLDER,
+                                                  "VSCode-darwin-arm64.next": OLDER})
+    first = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    second = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    assert first == second
+    assert len(first["candidates"].split("|")) == 2
+
+
+def test_vibe_app_wins_over_a_newer_packaged_bundle(tmp_path: Path) -> None:
+    root = make_packaged_root(tmp_path / "vibe", {"VSCode-darwin-arm64": NEWER})
+    app = make_fake_app(tmp_path / "elsewhere")
+    fields = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"],
+                              env={"VIBE_APP": str(app)}, cwd=tmp_path))
+    assert fields["backend"] == "app"
+    assert fields["app"] == str(app)
+    assert "candidates" not in fields, "nothing was considered: $VIBE_APP decided"
 
 
 def test_which_honours_vibe_app_override(tmp_path: Path) -> None:

@@ -10,12 +10,15 @@
 # they are npm-installed in a linux container (scripts/server/) into .build/server/ and
 # handed to gulp through VIBE_REH_REMOTE. <commit> is the one upstream stamps (git HEAD of
 # the checkout): a client only talks to a server that carries its own.
+# The tarball is finally linked into $VIBE_SERVERS_DIR (~/.vibe/servers), where an app that
+# does not sit in this build tree - one copied to /Applications - looks for it.
 # --package-only reuses the previous bundle and extensions, e.g. for the second arch;
-# --print-plan prints the steps and runs nothing.
+# --no-link skips the link step, --link-only is that step alone for a tarball already
+# built (no Docker needed); --print-plan prints the steps and runs nothing.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
-usage() { echo "usage: build-server.sh [--arch x64|arm64] [--package-only] [--print-plan]" >&2; exit 2; }
+usage() { echo "usage: build-server.sh [--arch x64|arm64] [--package-only] [--no-link|--link-only] [--print-plan]" >&2; exit 2; }
 die() { echo "build-server.sh: $*" >&2; exit 1; }
 step() { echo "build-server.sh: [$1] $2"; }
 
@@ -27,6 +30,8 @@ json_str() {
 ARCH="x64"
 PACKAGE_ONLY=0
 PRINT_PLAN=0
+LINK=1
+LINK_ONLY=0
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--arch)
@@ -35,9 +40,11 @@ while [ $# -gt 0 ]; do
 			shift 2
 			;;
 		--package-only) PACKAGE_ONLY=1; shift ;;
+		--no-link) LINK=0; shift ;;
+		--link-only) LINK_ONLY=1; shift ;;
 		--print-plan) PRINT_PLAN=1; shift ;;
 		-h|--help)
-			echo "usage: build-server.sh [--arch x64|arm64] [--package-only] [--print-plan]"
+			echo "usage: build-server.sh [--arch x64|arm64] [--package-only] [--no-link|--link-only] [--print-plan]"
 			exit 0
 			;;
 		*)
@@ -46,6 +53,10 @@ while [ $# -gt 0 ]; do
 			;;
 	esac
 done
+if [ "$LINK_ONLY" -eq 1 ] && [ "$LINK" -eq 0 ]; then
+	echo "build-server.sh: --link-only and --no-link contradict each other" >&2
+	usage
+fi
 case "$ARCH" in
 	x64) DOCKER_PLATFORM="linux/amd64"; MACHINE="x86_64" ;;
 	arm64) DOCKER_PLATFORM="linux/arm64"; MACHINE="aarch64" ;;
@@ -73,6 +84,37 @@ if ! printf '%s' "$COMMIT" | grep -Eq '^[0-9a-f]{40}$'; then
 fi
 NODE_VERSION="$(sed -n 's/^target="\(.*\)"$/\1/p' "$VIBE_CHECKOUT/remote/.npmrc" 2> /dev/null || true)"
 TARBALL="$BUILD/vibe-server-$TARGET-${COMMIT:-<commit>}.tar.gz"
+SERVERS_DIR="${VIBE_SERVERS_DIR:-$HOME/.vibe/servers}"
+
+# Makes the tarball findable by an app outside this build tree: the SSH resolver searches
+# $SERVERS_DIR, and a bundle in /Applications has nowhere else to look. Only our own links
+# and dangling ones are replaced; anything else of that name is left where it is.
+link_into_servers() {
+	local src name dest have
+	mkdir -p "$SERVERS_DIR"
+	for src in "$TARBALL" "$TARBALL.sha256"; do
+		name="$(basename "$src")"
+		dest="$SERVERS_DIR/$name"
+		if [ -L "$dest" ]; then
+			have="$(readlink "$dest")"
+			case "$have" in
+				"$BUILD"/*) ;;
+				*)
+					if [ -e "$dest" ]; then
+						echo "build-server.sh: $dest points at $have - left alone, link $src by hand" >&2
+						continue
+					fi
+					;;
+			esac
+			rm -f "$dest"
+		elif [ -e "$dest" ]; then
+			echo "build-server.sh: $dest is a file of its own - left alone, link $src by hand" >&2
+			continue
+		fi
+		ln -s "$src" "$dest"
+		echo "linked: $dest -> $src"
+	done
+}
 
 if [ "$PRINT_PLAN" -eq 1 ]; then
 	cat <<-EOF
@@ -94,8 +136,19 @@ if [ "$PRINT_PLAN" -eq 1 ]; then
 	            -> $OUT
 	4. natives  drop the binaries and packages of other platforms that extensions and prebuilds bring along
 	5. tarball  $TARBALL (+ .sha256)
-	next: scripts/verify-server.sh <tarball> [--host <ssh-host>]
 	EOF
+	if [ "$LINK" -eq 1 ]; then
+		echo "6. link     $SERVERS_DIR/$(basename "$TARBALL") (+ .sha256) -> the tarball"
+	fi
+	echo "next: scripts/verify-server.sh <tarball> [--host <ssh-host>]"
+	exit 0
+fi
+
+# --link-only: the tarball is there already, only the link into $SERVERS_DIR is missing.
+if [ "$LINK_ONLY" -eq 1 ]; then
+	[ -n "$COMMIT" ] || die "cannot tell the commit of $VIBE_CHECKOUT (no git HEAD, no BUILD_SOURCEVERSION)"
+	[ -f "$TARBALL" ] || die "$TARBALL is missing - build it first (without --link-only)"
+	link_into_servers
 	exit 0
 fi
 
@@ -184,6 +237,12 @@ rm -f "$BUILD"/vibe-server-"$TARGET"-*.tar.gz "$BUILD"/vibe-server-"$TARGET"-*.t
 # No AppleDouble files, no extended attributes: the archive is unpacked by GNU tar.
 COPYFILE_DISABLE=1 tar --no-xattrs -czf "$TARBALL" -C "$(dirname "$OUT")" "$(basename "$OUT")"
 (cd "$BUILD" && shasum -a 256 "$(basename "$TARBALL")" > "$TARBALL.sha256")
+
+# --- 6. where an app outside this tree looks --------------------------------------------- #
+if [ "$LINK" -eq 1 ]; then
+	step link "$SERVERS_DIR"
+	link_into_servers
+fi
 
 echo "tarball: $TARBALL ($(du -h "$TARBALL" | cut -f1), $(( ($(date +%s) - START) / 60 )) min)"
 echo "sha256: $(cut -d' ' -f1 "$TARBALL.sha256")"

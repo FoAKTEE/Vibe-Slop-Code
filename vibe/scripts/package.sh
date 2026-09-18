@@ -75,4 +75,17 @@ npm run gulp "$TASK"
 
 [ -e "$APP" ] || die "$TASK finished but $APP is missing"
 echo "app: $APP"
+
+# Copies of an earlier package kept under another name stay where they are — nothing here
+# deletes a 1.4 GB tree — but `vibe` has to choose between them, so name them.
+OTHERS=""
+for other in "$OUT"*; do
+	[ -d "$other" ] || continue
+	[ "$other" = "$OUT" ] && continue
+	OTHERS="${OTHERS:+$OTHERS, }$other"
+done
+if [ -n "$OTHERS" ]; then
+	echo "note: other bundles of this build are next to it, and vibe picks the newest: $OTHERS"
+fi
+
 "$VIBE_ROOT/bin/vibe" --vibe-which || true

@@ -98,7 +98,7 @@ def test_script_exists_executable_and_parses(script: Path) -> None:
 
 def test_readme_documents_packaging() -> None:
     readme = (VIBE / "README.md").read_text(encoding="utf-8")
-    for needle in ("package.sh", "verify-package.sh", "install-cli.sh", "VSCode-darwin"):
+    for needle in ("package.sh", "verify-package.sh", "install-cli.sh", "VSCode-darwin", "newest"):
         assert needle in readme, f"README does not mention {needle}"
 
 
@@ -184,6 +184,49 @@ def test_missing_node_modules_is_refused(tmp_path: Path) -> None:
     assert proc.returncode != 0
     assert "node_modules" in proc.stderr and "bootstrap.sh" in proc.stderr
     assert not marker.exists()
+
+
+# --------------------------------------------------------------------------- package.sh siblings
+
+def fake_checkout(tmp: Path) -> Path:
+    """The few files package.sh reads before it hands over to gulp."""
+    checkout = tmp / "vscode"
+    write(checkout / "package.json", json.dumps({"version": FAKE_VERSION}))
+    write(checkout / "node_modules" / ".keep", "")
+    write(checkout / "product.json", '{\n\t"nameLong": "Vibe Studio Code"\n}\n')
+    return checkout
+
+
+def package_with_bundles(tmp: Path, *names: str) -> subprocess.CompletedProcess:
+    """package.sh with a fake npm and the bundles gulp would have written already in
+    place — the run itself builds nothing."""
+    checkout = fake_checkout(tmp)
+    for name in names:
+        (tmp / name / APP_NAME / "Contents").mkdir(parents=True)
+    path, marker = fake_npm(tmp)
+    proc = run(PACKAGE, "--arch", "arm64", VIBE_UNAME_S="Darwin", VIBE_UNAME_M="arm64",
+               VIBE_ROOT=str(tmp), VIBE_CHECKOUT=str(checkout),
+               VIBE_TOOLCHAIN=str(tmp / "no-toolchain"), PATH=path)
+    assert marker.exists(), "package.sh never got as far as the gulp task"
+    return proc
+
+
+def test_sibling_bundles_are_named_and_never_removed(tmp_path: Path) -> None:
+    """A stale copy under another name is what `vibe` has to sort out later; say so."""
+    proc = package_with_bundles(tmp_path, "VSCode-darwin-arm64", "VSCode-darwin-arm64.next")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    notes = [line for line in proc.stdout.splitlines() if line.startswith("note: ")]
+    assert len(notes) == 1, proc.stdout
+    assert str(tmp_path / "VSCode-darwin-arm64.next") in notes[0]
+    assert notes[0].count(str(tmp_path / "VSCode-darwin-arm64")) == 1, \
+        f"the fresh bundle must not be listed as its own sibling: {notes[0]}"
+    assert (tmp_path / "VSCode-darwin-arm64.next" / APP_NAME).is_dir(), "nothing may be deleted"
+
+
+def test_a_lone_bundle_gets_no_note(tmp_path: Path) -> None:
+    proc = package_with_bundles(tmp_path, "VSCode-darwin-arm64")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "note: " not in proc.stdout, proc.stdout
 
 
 # --------------------------------------------------------------------------- verify-package.sh

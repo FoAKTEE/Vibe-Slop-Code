@@ -6,9 +6,11 @@
 #   1. $VIBE_APP                                 (explicit override, must exist)
 #   2. /Applications/Vibe Studio Code.app        (installed)
 #   3. packaged build: vibe/.build/… or the checkout's sibling VSCode-darwin-*
+#      — the NEWEST of them, never the one the glob happens to name first
 #   4. dev build: vibe/vscode/scripts/code.sh    (with the pinned toolchain)
 #
-# `vibe --vibe-which` prints the chosen backend and exits without launching.
+# `vibe --vibe-which` prints the chosen backend and exits without launching; with
+# a `candidates:` line naming every packaged bundle of step 3, newest first.
 # Compatible with the bash 3.2 that ships with macOS.
 
 set -u
@@ -38,7 +40,8 @@ TARGET=""
 # The darwin packaging task ships the bundled CLI at Contents/Resources/app/bin
 # under the fixed name `code` (build/gulpfile.vscode.ts renames code.sh to
 # `bin/code`), so try the branded name first and fall back to the upstream one.
-resolve_app() {
+# Prints what would be exec'd; a bundle without any of them is not usable.
+app_target() {
 	local app="$1" candidate
 	[ -d "$app" ] || return 1
 	for candidate in \
@@ -47,13 +50,58 @@ resolve_app() {
 		"$app/Contents/MacOS/$EXE_NAME"
 	do
 		if [ -x "$candidate" ]; then
-			APP="$app"
-			TARGET="$candidate"
-			BACKEND="app"
+			printf '%s\n' "$candidate"
 			return 0
 		fi
 	done
 	return 1
+}
+
+resolve_app() {
+	local target
+	target="$(app_target "$1")" || return 1
+	APP="$1"
+	TARGET="$target"
+	BACKEND="app"
+}
+
+# What a bundle's age is read from. The packaging task stamps the files it copies with
+# a fixed 1980 date (Info.plist, Contents/MacOS/<exe>) and keeps the checkout's mtime on
+# the rest, so nothing inside a bundle says when it was built — the directory the task
+# writes into does. A tree without Contents/ falls back to its CLI.
+bundle_stamp() {
+	if [ -d "$1/Contents" ]; then
+		printf '%s\n' "$1/Contents"
+	else
+		app_target "$1"
+	fi
+}
+
+# Sorts a newline-separated list of bundles newest first. A tie, and a bundle whose age
+# cannot be told, keep their place in the input (i.e. in sorted glob) order.
+newest_first() {
+	local rest="$1" out="" best best_stamp item item_stamp
+	while [ -n "$rest" ]; do
+		best=""
+		best_stamp=""
+		while IFS= read -r item; do
+			[ -n "$item" ] || continue
+			item_stamp="$(bundle_stamp "$item")"
+			if [ -z "$best" ]; then
+				best="$item"
+				best_stamp="$item_stamp"
+			elif [ -n "$item_stamp" ] && [ -n "$best_stamp" ] && [ "$item_stamp" -nt "$best_stamp" ]; then
+				best="$item"
+				best_stamp="$item_stamp"
+			fi
+		done <<-EOF
+		$rest
+		EOF
+		out="$out$best
+"
+		rest="$(printf '%s' "$rest" | grep -v -x -F -- "$best" || true)"
+	done
+	printf '%s' "$out"
 }
 
 # 1. explicit override
@@ -69,15 +117,25 @@ if [ -z "$BACKEND" ]; then
 	resolve_app "/Applications/$APP_NAME" || true
 fi
 
-# 3. locally packaged app (gulp vscode-darwin-<arch> writes next to the checkout)
+# 3. locally packaged app (gulp vscode-darwin-<arch> writes next to the checkout).
+# Several can sit side by side — a fresh package next to a copy kept under another name
+# — and the glob order says nothing about their age, so the newest one wins.
+CANDIDATES=""
 if [ -z "$BACKEND" ]; then
 	for candidate in \
 		"$VIBE_ROOT/.build/$APP_NAME" \
 		"$VIBE_ROOT/.build"/VSCode-darwin-*/"$APP_NAME" \
 		"$VIBE_ROOT"/VSCode-darwin-*/"$APP_NAME"
 	do
-		resolve_app "$candidate" && break
+		app_target "$candidate" > /dev/null && CANDIDATES="$CANDIDATES$candidate
+"
 	done
+	CANDIDATES="$(newest_first "$CANDIDATES")"
+	while IFS= read -r candidate; do
+		[ -n "$candidate" ] && resolve_app "$candidate" && break
+	done <<-EOF
+	$CANDIDATES
+	EOF
 fi
 
 # 4. dev build
@@ -101,6 +159,17 @@ if [ "${1:-}" = "--vibe-which" ]; then
 		echo "checkout: $CHECKOUT"
 	fi
 	echo "target: $TARGET"
+	if [ -n "$CANDIDATES" ]; then
+		LIST=""
+		while IFS= read -r candidate; do
+			[ -n "$candidate" ] || continue
+			[ -n "$LIST" ] && LIST="$LIST | "
+			LIST="$LIST$candidate"
+		done <<-EOF
+		$CANDIDATES
+		EOF
+		echo "candidates: $LIST"
+	fi
 	exit 0
 fi
 

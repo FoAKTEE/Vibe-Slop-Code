@@ -105,6 +105,21 @@ def build_env(tmp: Path, **extra: str) -> dict[str, str]:
             "VIBE_TOOLCHAIN": str(tmp / "no-toolchain"), "BUILD_SOURCEVERSION": FAKE_COMMIT, **extra}
 
 
+def fake_tarball(tmp: Path, arch: str = "x64") -> Path:
+    """What a finished build leaves in .build/server; the contents do not matter here."""
+    tarball = tmp / ".build" / "server" / f"vibe-server-linux-{arch}-{FAKE_COMMIT}.tar.gz"
+    write(tarball, "a tarball\n")
+    write(Path(f"{tarball}.sha256"), f"{'0' * 64}  {tarball.name}\n")
+    return tarball
+
+
+def link_only(tmp: Path, servers: Path) -> subprocess.CompletedProcess:
+    path, log = fake_tools(tmp)
+    proc = run(BUILD, "--link-only", PATH=path, **build_env(tmp, VIBE_SERVERS_DIR=str(servers)))
+    assert not log.exists(), "--link-only must not run docker or npm"
+    return proc
+
+
 # --------------------------------------------------------------------------- static
 
 @pytest.mark.parametrize("script", [BUILD, VERIFY], ids=["build-server.sh", "verify-server.sh"])
@@ -156,6 +171,13 @@ def test_helper_files_exist_and_are_ascii() -> None:
 def test_readme_documents_the_remote_server() -> None:
     readme = (VIBE / "README.md").read_text(encoding="utf-8")
     for needle in ("## Remote server", "build-server.sh", "verify-server.sh", ".build/server", "--host"):
+        assert needle in readme, f"README does not mention {needle}"
+
+
+def test_readme_documents_connecting_to_a_host() -> None:
+    readme = (VIBE / "README.md").read_text(encoding="utf-8")
+    for needle in ("## Connect to an SSH host", "~/.ssh/config", "~/.vibe-server",
+                   "workbench.action.workspaceBar.connectToSshHost", "~/.vscode-server", "linux-x64"):
         assert needle in readme, f"README does not mention {needle}"
 
 
@@ -217,13 +239,98 @@ def test_print_plan_needs_no_checkout(tmp_path: Path) -> None:
     assert "vibe-server-linux-x64-<commit>.tar.gz" in proc.stdout
 
 
-@pytest.mark.parametrize("args", [["--nope"], ["--arch"], ["--arch", "riscv"], ["extra"]])
+def test_print_plan_mentions_the_link_step(tmp_path: Path) -> None:
+    servers = tmp_path / "servers"
+    proc = run(BUILD, "--print-plan", **build_env(tmp_path, VIBE_SERVERS_DIR=str(servers)))
+    assert proc.returncode == 0, proc.stderr
+    assert "link" in proc.stdout and str(servers) in proc.stdout, proc.stdout
+    assert not servers.exists(), "--print-plan must not create anything"
+
+
+def test_print_plan_without_linking_omits_the_link_step(tmp_path: Path) -> None:
+    servers = tmp_path / "servers"
+    proc = run(BUILD, "--no-link", "--print-plan", **build_env(tmp_path, VIBE_SERVERS_DIR=str(servers)))
+    assert proc.returncode == 0, proc.stderr
+    assert str(servers) not in proc.stdout, proc.stdout
+
+
+@pytest.mark.parametrize("args", [["--nope"], ["--arch"], ["--arch", "riscv"], ["extra"],
+                                  ["--link-only", "--no-link"]])
 def test_bad_arguments_are_rejected(tmp_path: Path, args: list[str]) -> None:
     path, log = fake_tools(tmp_path)
     proc = run(BUILD, *args, "--print-plan", PATH=path, **build_env(tmp_path))
     assert proc.returncode == 2, proc.stdout
     assert "usage" in proc.stderr
     assert not log.exists()
+
+
+# --------------------------------------------------------------------------- build-server.sh --link-only
+
+def test_link_only_links_the_tarball_where_an_installed_app_looks(tmp_path: Path) -> None:
+    """An app outside the build tree - one copied to /Applications - searches only
+    ~/.vibe/servers, so the build has to leave the tarball there too."""
+    tarball = fake_tarball(tmp_path)
+    servers = tmp_path / "servers"
+    proc = link_only(tmp_path, servers)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    for source in (tarball, Path(f"{tarball}.sha256")):
+        link = servers / source.name
+        assert link.is_symlink(), proc.stdout
+        assert Path(os.readlink(link)) == source
+        assert str(link) in proc.stdout
+
+
+def test_link_only_refuses_a_tarball_that_was_never_built(tmp_path: Path) -> None:
+    servers = tmp_path / "servers"
+    proc = link_only(tmp_path, servers)
+    assert proc.returncode != 0
+    assert f"vibe-server-linux-x64-{FAKE_COMMIT}.tar.gz" in proc.stderr
+    assert not servers.exists(), "nothing is created for a build that does not exist"
+
+
+def test_link_only_is_idempotent(tmp_path: Path) -> None:
+    tarball = fake_tarball(tmp_path)
+    servers = tmp_path / "servers"
+    assert link_only(tmp_path, servers).returncode == 0
+    second = link_only(tmp_path, servers)
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert Path(os.readlink(servers / tarball.name)) == tarball
+
+
+def test_link_only_replaces_a_dangling_link(tmp_path: Path) -> None:
+    """Every build removes the tarball of the one before it, so its link is ours to reuse."""
+    tarball = fake_tarball(tmp_path)
+    servers = tmp_path / "servers"
+    servers.mkdir()
+    (servers / tarball.name).symlink_to(tmp_path / ".build" / "server" / "gone.tar.gz")
+    proc = link_only(tmp_path, servers)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert Path(os.readlink(servers / tarball.name)) == tarball
+
+
+def test_link_only_never_overwrites_a_regular_file(tmp_path: Path) -> None:
+    tarball = fake_tarball(tmp_path)
+    servers = tmp_path / "servers"
+    servers.mkdir()
+    (servers / tarball.name).write_text("someone else's build\n", encoding="utf-8")
+    proc = link_only(tmp_path, servers)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (servers / tarball.name).read_text(encoding="utf-8") == "someone else's build\n"
+    assert str(servers / tarball.name) in proc.stderr
+    assert (servers / f"{tarball.name}.sha256").is_symlink(), "the sidecar is still linked"
+
+
+def test_link_only_leaves_a_link_of_someone_else_alone(tmp_path: Path) -> None:
+    tarball = fake_tarball(tmp_path)
+    servers = tmp_path / "servers"
+    servers.mkdir()
+    other = tmp_path / "elsewhere" / tarball.name
+    write(other, "another build\n")
+    (servers / tarball.name).symlink_to(other)
+    proc = link_only(tmp_path, servers)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert Path(os.readlink(servers / tarball.name)) == other
+    assert str(servers / tarball.name) in proc.stderr
 
 
 # --------------------------------------------------------------------------- build-server.sh refusals
