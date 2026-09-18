@@ -1,0 +1,200 @@
+[
+  {
+    "paper": "self",
+    "node_id": "self::codex-runner",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::docs-index",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-checkpoint-manifest",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-identity-revisions",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-integrity-before-decisions",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-ledger-transaction",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-memory-preservation",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-redesign-note",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-registry-candidate-binding",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-validator-binding",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::meta-skills",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 3,
+    "pass": 1,
+    "fail": 2
+  },
+  {
+    "paper": "self",
+    "node_id": "self::meta-skills-2",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::orchestrator-test-discovery",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 3,
+    "pass": 2,
+    "fail": 1
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-harvest",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-loading",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-registry",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-code-quality",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-ledgers",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-stages",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-writing-commit",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::software-domain",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "self",
+    "node_id": "self::verifier-role-isolation",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 1,
+    "pass": 1,
+    "fail": 0
+  }
+]

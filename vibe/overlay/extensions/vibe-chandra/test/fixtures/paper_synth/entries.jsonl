@@ -1,0 +1,3 @@
+{"paper": "synth", "entry_id": "cl-1", "kind": "claim", "status": "open", "statement": "a holds", "node_ids": ["synth::a"], "needed_evidence_type": "exact_proof", "row_hash": "q0"}
+{"paper": "synth", "entry_id": "ob-1", "kind": "obligation", "status": "open", "statement": "prove r1 terminates", "node_ids": ["synth::r1", "synth::a"], "blocking": true, "row_hash": "q1"}
+{"paper": "synth", "entry_id": "cl-1", "kind": "claim", "status": "admitted", "statement": "a holds", "node_ids": ["synth::a"], "needed_evidence_type": "exact_proof", "result_ref": "res-1", "row_hash": "q2"}

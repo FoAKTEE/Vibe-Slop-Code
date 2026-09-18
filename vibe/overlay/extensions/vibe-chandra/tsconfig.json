@@ -1,0 +1,18 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./out",
+		"rewriteRelativeImportExtensions": true,
+		"erasableSyntaxOnly": true,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"src/**/*"
+	],
+	"exclude": [
+		"src/view/**"
+	]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "vibe-chandra",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "10.0.0",
+  "publisher": "vibe",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "scripts": {
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"test/*.test.ts\"",
+    "typecheck": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/typecheck.test.ts",
+    "compile": "gulp compile-extension:vibe-chandra && npm run build-webview",
+    "watch": "npm run build-webview && gulp watch-extension:vibe-chandra",
+    "build-webview": "node ./esbuild.webview.mts",
+    "build-harness": "node ./harness/build.mts",
+    "vscode:prepublish": "npm run build-webview"
+  }
+}

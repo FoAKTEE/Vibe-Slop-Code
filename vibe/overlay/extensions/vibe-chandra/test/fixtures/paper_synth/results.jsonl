@@ -1,0 +1,2 @@
+{"paper": "synth", "result_id": "res-1", "name": "a verified", "claim": "a holds", "status": "conjectural", "evidence_type": "exact_proof", "node_ids": ["synth::a"], "verifier_result": {"verdict": "partial"}, "row_hash": "s0"}
+{"paper": "synth", "result_id": "res-1", "name": "a verified", "claim": "a holds", "status": "checked", "evidence_type": "exact_proof", "node_ids": ["synth::a"], "verifier_result": {"verdict": "pass"}, "row_hash": "s1"}

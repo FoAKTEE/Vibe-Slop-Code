@@ -1,0 +1,4 @@
+# Ignore built files
+media/*.js
+harness/dist/
+out/

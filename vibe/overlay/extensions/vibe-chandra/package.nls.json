@@ -1,0 +1,4 @@
+{
+	"displayName": "Chandra Workflow Graph",
+	"description": "Renders the Chandra research workflow (a directed hypergraph folded from the append-only ledgers) natively in the editor."
+}

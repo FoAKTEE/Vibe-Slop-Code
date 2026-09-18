@@ -1,0 +1,796 @@
+[
+  {
+    "paper": "self",
+    "node_id": "self::software-domain",
+    "task_id": "S0",
+    "domain": "software",
+    "status": "solid",
+    "summary": "software domain in error / knowledge / loop-policy so the methodology repo can record its own optimization",
+    "predecessors": [],
+    "evidence": "65c552a",
+    "verification": {
+      "command": "python3 -m pytest tests/test_software_domain.py -q",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "landed in commit 65c552a; verification executed at append",
+    "timestamp": "2026-09-09T00:43:33.160679+00:00",
+    "git_commit": "7ee3a70",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_software_domain.py -q",
+      "exit_code": 0,
+      "duration_s": 0.601,
+      "output_sha256": "06955fb47f16312e5d13266c774a2aa4648c46e423cbe6564a92e25b68e39131",
+      "output_tail": "........                                                                 [100%]\n",
+      "ran_at": "2026-09-09T00:43:33+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "7a8ea15de9140ebbad19f95b85ec06f56a316512b7e15ad3308da98376956d6e"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-registry",
+    "task_id": "S1",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skill registry: validate / index / briefing / new / promote / harvest \u2014 the gate a skill passes to enter methodology source",
+    "predecessors": [],
+    "evidence": "b9e6cc9",
+    "verification": {
+      "command": "python3 -m pytest tests/test_skill_registry.py -q -k \"not shipped_skills\"",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "landed in commit b9e6cc9; verification executed at append",
+    "timestamp": "2026-09-09T00:43:33.823808+00:00",
+    "git_commit": "7ee3a70",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_skill_registry.py -q -k \"not shipped_skills\"",
+      "exit_code": 0,
+      "duration_s": 0.91,
+      "output_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+      "output_tail": "...................                                                      [100%]\n",
+      "ran_at": "2026-09-09T00:43:33+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "de3b75893ca0a04ad6c4bede8ce017bbc26803da54738a8a2e6ef86dc4ba0ff7"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::meta-skills",
+    "task_id": "S2",
+    "domain": "software",
+    "status": "solid",
+    "summary": "meta skills chandra-orient, skill-write, codex-gpt6-max + the generated skills index",
+    "predecessors": [
+      "self::skill-registry"
+    ],
+    "evidence": "2442e8a",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . chandra-orient skill-write codex-gpt6-max",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "landed in commit 2442e8a; verification executed at append",
+    "timestamp": "2026-09-09T00:43:34.800129+00:00",
+    "git_commit": "7ee3a70",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . chandra-orient skill-write codex-gpt6-max",
+      "exit_code": 0,
+      "duration_s": 0.289,
+      "output_sha256": "0cf97f0f638da9b280b90e95fadcf311b71813c6c597d81a57c1eef87120a737",
+      "output_tail": "\u2713 chandra-orient\n\u2713 codex-gpt6-max\n\u2713 skill-write\n3 skills checked, 3 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T00:43:34+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "f6665f255c3e68f3f8ec4def690201266a56bff85d11330ca0e42ad452b14659"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::orchestrator-test-discovery",
+    "task_id": "S2b",
+    "domain": "software",
+    "status": "solid",
+    "summary": "npm test discovers the compiled suite under node 18 (directory form, no glob)",
+    "predecessors": [],
+    "evidence": "d35e90b",
+    "verification": {
+      "command": "npm test",
+      "cwd": "orchestrator",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "retry after self::verifier-role-isolation; adjudicated by the orchestrating session as validator",
+    "timestamp": "2026-09-09T01:00:08.391714+00:00",
+    "git_commit": "13fc114",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "npm test",
+      "exit_code": 0,
+      "duration_s": 7.373,
+      "output_sha256": "54660b26099121d2d0ea9c0317d032f33b3f59e8611229706e6744d63371fb76",
+      "output_tail": "wave\nok 60 - a crashing worker is reported failed and does not sink the wave\n  ---\n  duration_ms: 2.026277\n  ...\n# Subtest: packets: a pure chain is leased whole, up to packetSize\nok 61 - packets: a pure chain is leased whole, up to packetSize\n  ---\n  duration_ms: 0.551809\n  ...\n# Subtest: packets: a branch point ends the lease \u2014 branches stay parallel\nok 62 - packets: a branch point ends the lease \u2014 branches stay parallel\n  ---\n  duration_ms: 0.640749\n  ...\n# Subtest: packets: two independent chains are leased to two parallel workers\nok 63 - packets: two independent chains are leased to two parallel workers\n  ---\n  duration_ms: 0.303509\n  ...\n# Subtest: parseJudgeVerdict accepts admit and reject JSON, including fenced output\nok 64 - parseJudgeVerdict accepts admit and reject JSON, including fenced output\n  ---\n  duration_ms: 2.873475\n  ...\n# Subtest: parseJudgeVerdict fails closed on unparseable or invalid verdicts\nok 65 - parseJudgeVerdict fails closed on unparseable or invalid verdicts\n  ---\n  duration_ms: 0.28099\n  ...\n# Subtest: context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\nok 66 - context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\n  ---\n  duration_ms: 11.10844\n  ...\n# Subtest: admit verdict lands as a GATED result append (and the gate can still refuse)\nok 67 - admit verdict lands as a GATED result append (and the gate can still refuse)\n  ---\n  duration_ms: 338.904461\n  ...\n# Subtest: reject verdict lands as an open blocking repair obligation on the node\nok 68 - reject verdict lands as an open blocking repair obligation on the node\n  ---\n  duration_ms: 120.418834\n  ...\n# Subtest: the refuter is mandatory: empty findings abort before any judge/ledger action\nok 69 - the refuter is mandatory: empty findings abort before any judge/ledger action\n  ---\n  duration_ms: 58.851854\n  ...\n1..69\n# tests 69\n# suites 0\n# pass 69\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3985.470082\n",
+      "ran_at": "2026-09-09T01:00:08+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "47fc515d2752fea9aefe4072c37e586bc022d369f46e9a50b059d893fe736232"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-loading",
+    "task_id": "S3",
+    "domain": "software",
+    "status": "solid",
+    "summary": "AGENTS.md entry point + opt-in SessionStart skills briefing so Codex / SDK workers load skills",
+    "predecessors": [
+      "self::skill-registry"
+    ],
+    "evidence": "7ee3a70",
+    "verification": {
+      "command": "python3 -m pytest tests/test_skill_loading.py -q",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "landed in commit 7ee3a70; verification executed at append",
+    "timestamp": "2026-09-09T00:43:40.698629+00:00",
+    "git_commit": "7ee3a70",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_skill_loading.py -q",
+      "exit_code": 0,
+      "duration_s": 0.7,
+      "output_sha256": "cf426ab35f3b06fccef8290fde5325d90af130a79da1d1752031518df77c4236",
+      "output_tail": "...                                                                      [100%]\n",
+      "ran_at": "2026-09-09T00:43:40+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "168a1582f275d769a89b1eeeed75c4b179b5c5c1b0df715c4e7c500925ff4e30"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-ledgers",
+    "task_id": "A",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skills batch A (GPT-6 worker): ledger-result-admit, ledger-error-trial, ledger-knowledge-node, ledger-claims, ledger-query-views, dag-mermaid, mission-dashboard, loop-no-tweak, loop-gate",
+    "predecessors": [
+      "self::meta-skills"
+    ],
+    "evidence": "9022ab1",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . ledger-result-admit ledger-error-trial ledger-knowledge-node ledger-claims ledger-query-views dag-mermaid mission-dashboard loop-no-tweak loop-gate",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "written by a GPT-6 (gpt-6-astra, effort max) worker; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:24:17.235741+00:00",
+    "git_commit": "e6132f0",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . ledger-result-admit ledger-error-trial ledger-knowledge-node ledger-claims ledger-query-views dag-mermaid mission-dashboard loop-no-tweak loop-gate",
+      "exit_code": 0,
+      "duration_s": 6.449,
+      "output_sha256": "60b97c73b057be05a6014ba95ea51ae9eb50dadf954f17999845d98ac17a8fc0",
+      "output_tail": "\u2713 dag-mermaid\n\u2713 ledger-claims\n\u2713 ledger-error-trial\n\u2713 ledger-knowledge-node\n\u2713 ledger-query-views\n\u2713 ledger-result-admit\n\u2713 loop-gate\n\u2713 loop-no-tweak\n\u2713 mission-dashboard\n9 skills checked, 9 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:24:17+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "dbebe89e10514048667814d357ff2bdcacc036e0c3be410fc2930253f953d925"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-stages",
+    "task_id": "B",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skills batch B (GPT-6 worker): acquire-source, vlm-pdf-to-tex, decompose-paper, work-packet, task-template, adversarial-validate, mission-run",
+    "predecessors": [
+      "self::meta-skills"
+    ],
+    "evidence": "8dbd086",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . acquire-source vlm-pdf-to-tex decompose-paper work-packet task-template adversarial-validate mission-run",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "written by a GPT-6 (gpt-6-astra, effort max) worker; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:24:23.750147+00:00",
+    "git_commit": "e6132f0",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . acquire-source vlm-pdf-to-tex decompose-paper work-packet task-template adversarial-validate mission-run",
+      "exit_code": 0,
+      "duration_s": 3.514,
+      "output_sha256": "e2b4829240d0f66ac833b31e3dcf34317c11d0eff87d45833ff16b8257e7dd52",
+      "output_tail": "\u2713 acquire-source\n\u2713 adversarial-validate\n\u2713 decompose-paper\n\u2713 mission-run\n\u2713 task-template\n\u2713 vlm-pdf-to-tex\n\u2713 work-packet\n7 skills checked, 7 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:24:23+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "eade775fd35146d7ab9bea59ce4e4e73c855eb5b922d4e9145070d87cdbfb6fd"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-writing-commit",
+    "task_id": "C",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skills batch C (GPT-6 worker): write-paper, intro-cars, paper-checkpoints, commit-gated, three-notes, markers-discipline, tool-promote, pua",
+    "predecessors": [
+      "self::meta-skills"
+    ],
+    "evidence": "8cdf4e6",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . write-paper intro-cars paper-checkpoints commit-gated three-notes markers-discipline tool-promote pua",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "written by a GPT-6 (gpt-6-astra, effort max) worker; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:24:27.326654+00:00",
+    "git_commit": "e6132f0",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . write-paper intro-cars paper-checkpoints commit-gated three-notes markers-discipline tool-promote pua",
+      "exit_code": 0,
+      "duration_s": 1.43,
+      "output_sha256": "cc16999e5bcc918fb06c02e6c8b5c8579fb59bcbfc21e907c5f97b8b982f4206",
+      "output_tail": "\u2713 commit-gated\n\u2713 intro-cars\n\u2713 markers-discipline\n\u2713 paper-checkpoints\n\u2713 pua\n\u2713 three-notes\n\u2713 tool-promote\n\u2713 write-paper\n8 skills checked, 8 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:24:27+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "906be84a5adaed035b9dbbf8107f1c3d8e6f084a7d265608ceaca0ee7a718f72"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skills-code-quality",
+    "task_id": "D",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skills batch D (GPT-6 worker): code-quality-{orientation,intake,abstraction,review} injecting the live policy bundles",
+    "predecessors": [
+      "self::meta-skills"
+    ],
+    "evidence": "e6132f0",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . code-quality-orientation code-quality-intake code-quality-abstraction code-quality-review",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "written by a GPT-6 (gpt-6-astra, effort max) worker; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:24:28.826848+00:00",
+    "git_commit": "e6132f0",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . code-quality-orientation code-quality-intake code-quality-abstraction code-quality-review",
+      "exit_code": 0,
+      "duration_s": 1.158,
+      "output_sha256": "9f8ea62a1fafb077e7fef247b2805b58fe09db58697d471dc285895dc78b4135",
+      "output_tail": "\u2713 code-quality-abstraction\n\u2713 code-quality-intake\n\u2713 code-quality-orientation\n\u2713 code-quality-review\n4 skills checked, 4 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:24:28+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "d456497139e0434c63d1394c74a57dcae9129968091ea325cce235990e3ef0b6"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::codex-runner",
+    "task_id": "S4",
+    "domain": "software",
+    "status": "solid",
+    "summary": "orchestrator: per-role Codex CLI runners (worker, jobs, validator) selected by models.<role> = codex:<model>",
+    "predecessors": [
+      "self::orchestrator-test-discovery"
+    ],
+    "evidence": "13fc114",
+    "verification": {
+      "command": "npm test",
+      "cwd": "orchestrator",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker from an XML-block prompt; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:00:15.831405+00:00",
+    "git_commit": "13fc114",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "npm test",
+      "exit_code": 0,
+      "duration_s": 7.323,
+      "output_sha256": "6ba4a5396cca426bace73e8604853838f22fd5d3c68cdc7601f7f7aebc2061ba",
+      "output_tail": "wave\nok 60 - a crashing worker is reported failed and does not sink the wave\n  ---\n  duration_ms: 2.051687\n  ...\n# Subtest: packets: a pure chain is leased whole, up to packetSize\nok 61 - packets: a pure chain is leased whole, up to packetSize\n  ---\n  duration_ms: 0.543579\n  ...\n# Subtest: packets: a branch point ends the lease \u2014 branches stay parallel\nok 62 - packets: a branch point ends the lease \u2014 branches stay parallel\n  ---\n  duration_ms: 0.660529\n  ...\n# Subtest: packets: two independent chains are leased to two parallel workers\nok 63 - packets: two independent chains are leased to two parallel workers\n  ---\n  duration_ms: 0.318799\n  ...\n# Subtest: parseJudgeVerdict accepts admit and reject JSON, including fenced output\nok 64 - parseJudgeVerdict accepts admit and reject JSON, including fenced output\n  ---\n  duration_ms: 2.821735\n  ...\n# Subtest: parseJudgeVerdict fails closed on unparseable or invalid verdicts\nok 65 - parseJudgeVerdict fails closed on unparseable or invalid verdicts\n  ---\n  duration_ms: 0.28574\n  ...\n# Subtest: context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\nok 66 - context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\n  ---\n  duration_ms: 48.042253\n  ...\n# Subtest: admit verdict lands as a GATED result append (and the gate can still refuse)\nok 67 - admit verdict lands as a GATED result append (and the gate can still refuse)\n  ---\n  duration_ms: 322.00949\n  ...\n# Subtest: reject verdict lands as an open blocking repair obligation on the node\nok 68 - reject verdict lands as an open blocking repair obligation on the node\n  ---\n  duration_ms: 124.489276\n  ...\n# Subtest: the refuter is mandatory: empty findings abort before any judge/ledger action\nok 69 - the refuter is mandatory: empty findings abort before any judge/ledger action\n  ---\n  duration_ms: 60.048032\n  ...\n1..69\n# tests 69\n# suites 0\n# pass 69\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 3937.265512\n",
+      "ran_at": "2026-09-09T01:00:15+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "e9d534b029d995ec46c37245f4f3900e2b782bbbc1cf4b02cc894e4535e01e15"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::skill-harvest",
+    "task_id": "S6",
+    "domain": "software",
+    "status": "solid",
+    "summary": "orchestrator: worker prompts ask for skill drafts; every wave harvests $CHANDRA_RUNTIME skill drafts through the registry gate and journals promotions",
+    "predecessors": [
+      "self::codex-runner",
+      "self::skill-registry"
+    ],
+    "evidence": "785ba1c",
+    "verification": {
+      "command": "npm test",
+      "cwd": "orchestrator",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker; reviewed and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-09T01:25:13.990325+00:00",
+    "git_commit": "785ba1c",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "npm test",
+      "exit_code": 0,
+      "duration_s": 8.25,
+      "output_sha256": "2048a19cf9f2a0b17afafced292043b597eb7c4064343ea9444d9676613dc9cd",
+      "output_tail": "pty: journal and log correctly, then continue through the next wave\nok 71 - wave harvest empty: journal and log correctly, then continue through the next wave\n  ---\n  duration_ms: 1254.224579\n  ...\n# Subtest: wave harvest rejected: journal and log correctly, then continue through the next wave\nok 72 - wave harvest rejected: journal and log correctly, then continue through the next wave\n  ---\n  duration_ms: 1242.450291\n  ...\n# Subtest: wave harvest crash: journal and log correctly, then continue through the next wave\nok 73 - wave harvest crash: journal and log correctly, then continue through the next wave\n  ---\n  duration_ms: 1318.543329\n  ...\n# Subtest: parseJudgeVerdict accepts admit and reject JSON, including fenced output\nok 74 - parseJudgeVerdict accepts admit and reject JSON, including fenced output\n  ---\n  duration_ms: 2.879268\n  ...\n# Subtest: parseJudgeVerdict fails closed on unparseable or invalid verdicts\nok 75 - parseJudgeVerdict fails closed on unparseable or invalid verdicts\n  ---\n  duration_ms: 0.30561\n  ...\n# Subtest: context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\nok 76 - context pack contains ONLY allowlisted files, hashed; isolation audit catches smuggling\n  ---\n  duration_ms: 11.446204\n  ...\n# Subtest: admit verdict lands as a GATED result append (and the gate can still refuse)\nok 77 - admit verdict lands as a GATED result append (and the gate can still refuse)\n  ---\n  duration_ms: 339.86864\n  ...\n# Subtest: reject verdict lands as an open blocking repair obligation on the node\nok 78 - reject verdict lands as an open blocking repair obligation on the node\n  ---\n  duration_ms: 124.908407\n  ...\n# Subtest: the refuter is mandatory: empty findings abort before any judge/ledger action\nok 79 - the refuter is mandatory: empty findings abort before any judge/ledger action\n  ---\n  duration_ms: 62.862568\n  ...\n1..79\n# tests 79\n# suites 0\n# pass 79\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 4825.853104\n",
+      "ran_at": "2026-09-09T01:25:13+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "bf33fe2f07265ad533ac03c3972cae1f92cd1ce326810d0e69a7b592965b1f36"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::meta-skills-2",
+    "task_id": "S2c",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skills skill-load and self-optimize (the self-hosted mission procedure)",
+    "predecessors": [
+      "self::skill-loading",
+      "self::skill-harvest"
+    ],
+    "evidence": "57321e5",
+    "verification": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . skill-load self-optimize",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "timestamp": "2026-09-09T01:25:22.308912+00:00",
+    "git_commit": "785ba1c",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 _common/skill_registry.py validate --exec --root . skill-load self-optimize",
+      "exit_code": 0,
+      "duration_s": 0.363,
+      "output_sha256": "5903740ba9308c56e020111eebc1372a5b0dbc740efa3c53d5f2933a4e1aef95",
+      "output_tail": "\u2713 self-optimize\n\u2713 skill-load\n2 skills checked, 2 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:25:22+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "37145b3e1bc132a4892fc617bd04082099cdb290f95187580c3ec4a7b06daf41"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::docs-index",
+    "task_id": "S7",
+    "domain": "software",
+    "status": "solid",
+    "summary": "INDEX.md / README / _common README describe skills, the software domain, and cross-model runners",
+    "predecessors": [
+      "self::skills-ledgers",
+      "self::skills-stages",
+      "self::skills-writing-commit",
+      "self::skills-code-quality",
+      "self::meta-skills-2"
+    ],
+    "evidence": "23c8bf7",
+    "verification": {
+      "command": "python3 -m pytest tests/test_skill_loading.py -q && python3 _common/skill_registry.py validate --root . chandra-orient skill-load",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "timestamp": "2026-09-09T01:26:00.932086+00:00",
+    "git_commit": "23c8bf7",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_skill_loading.py -q && python3 _common/skill_registry.py validate --root . chandra-orient skill-load",
+      "exit_code": 0,
+      "duration_s": 0.748,
+      "output_sha256": "d132f8d33bda4dfad5cffb86c025db29ef924f6efe2d4cb780ba533df6374284",
+      "output_tail": "...                                                                      [100%]\n\u2713 chandra-orient\n\u2713 skill-load\n2 skills checked, 2 ok, 0 rejected\n",
+      "ran_at": "2026-09-09T01:26:00+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "33af3050534c5d0671607ddca16aaba6f5b53daa54da9de3a4d393214fb2b385"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::verifier-role-isolation",
+    "task_id": "S5a",
+    "domain": "software",
+    "status": "solid",
+    "summary": "admission gate runs verification commands with the appender's CHANDRA_ROLE scrubbed \u2014 the verifier is not the worker",
+    "predecessors": [
+      "self::software-domain"
+    ],
+    "evidence": "d5ce21f",
+    "verification": {
+      "command": "python3 -m pytest tests/test_admission.py -q",
+      "timeout_s": 300
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "timestamp": "2026-09-09T00:46:04.403578+00:00",
+    "git_commit": "d5ce21f",
+    "actor_role": "worker",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_admission.py -q",
+      "exit_code": 0,
+      "duration_s": 0.693,
+      "output_sha256": "0caf379acbcb845c31b98bf4efeffb865a66d527d27d5bb4f34018bea0099078",
+      "output_tail": "...................                                                      [100%]\n",
+      "ran_at": "2026-09-09T00:46:04+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "78999c8a9ae1ff885216f7ef2826b938b651f4d7f8cd982b7fb66715ed761af4"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-redesign-note",
+    "task_id": "KB0",
+    "domain": "software",
+    "status": "solid",
+    "summary": "knowledgebase redesign note v3: diagnosis (30 problems), two independent GPT-6 analyses, Claude + GPT-6 refutations, staged A+K-then-B proposal with a 21-node migration DAG",
+    "predecessors": [
+      "self::docs-index"
+    ],
+    "evidence": "5e6eefb",
+    "verification": {
+      "command": "python3 notes/kb_redesign/gaps.py && python3 notes/kb_redesign/concurrent.py && test -s notes/kb_redesign/reviews/gpt6-refutation.md",
+      "timeout_s": 600
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "solid = the note's demonstrations and the writer-race reproduction execute at append; reviewed by four parties (see the note's \u00a710)",
+    "timestamp": "2026-09-09T08:42:50.671172+00:00",
+    "git_commit": "5e6eefb",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 notes/kb_redesign/gaps.py && python3 notes/kb_redesign/concurrent.py && test -s notes/kb_redesign/reviews/gpt6-refutation.md",
+      "exit_code": 0,
+      "duration_s": 0.741,
+      "output_sha256": "739d771e09ef558d9d5e098ab5d494211be05704ca2133bda1a5861033c9cbcb",
+      "output_tail": "1. cross-paper readiness -> {\"ready\":[],\"nodes\":[\"P::top\"]}\n2. latest r1 claim -> A does NOT hold | history rows: 2 | no supersedes link, no warning\n3. after deleting the last row, verify-chains -> {'ok': True, 'breaks': []}\n4. orphan trial accepted; progress shows -> [{'paper': 'P', 'node_id': 'P::does-not-exist', 'status': None, 'n_knowledge': 0, 'n_trials': 1, 'pass': 1, 'fail': 0}]\nrun 0: rows=100 verify={'ok': False, 'breaks': [{'db': 'error', 'paper': 'P', 'ok': False, 'rows': 100, 'hashed': 4, 'break_at': 4, 'reason': 'hash mismatch (edited, dropped, or reordered row)'}]}\nrun 1: rows=100 verify={'ok': False, 'breaks': [{'db': 'error', 'paper': 'P', 'ok': False, 'rows': 100, 'hashed': 65, 'break_at': 65, 'reason': 'hash mismatch (edited, dropped, or reordered row)'}]}\nrun 2: rows=100 verify={'ok': False, 'breaks': [{'db': 'error', 'paper': 'P', 'ok': False, 'rows': 100, 'hashed': 5, 'break_at': 5, 'reason': 'hash mismatch (edited, dropped, or reordered row)'}]}\n",
+      "ran_at": "2026-09-09T08:42:50+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "f9bd5922cbedf5e178ac2db15c61b2a970bf85cbfcc3d8f82c3bde1095b106ee"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-ledger-transaction",
+    "task_id": "KB1",
+    "domain": "software",
+    "status": "solid",
+    "summary": "repository transaction lock: verification outside, read-set re-validation + sequence allocation + fsync append inside; readers fail closed on incomplete tails",
+    "predecessors": [
+      "self::kb-redesign-note"
+    ],
+    "evidence": "3a7fa39",
+    "verification": {
+      "command": "python3 -m pytest tests/test_ledger_transaction.py tests/test_hash_chain.py -q && python3 notes/kb_redesign/concurrent.py",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract; reviewed, verified in an isolated worktree, and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T21:05:51.497699+00:00",
+    "git_commit": "3a7fa39",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_ledger_transaction.py tests/test_hash_chain.py -q && python3 notes/kb_redesign/concurrent.py",
+      "exit_code": 0,
+      "duration_s": 26.879,
+      "output_sha256": "441d64ae5bd7f3bcc09fc5d55fe78c45e47952f2e357e7c6e70c71a754d7f350",
+      "output_tail": ".........................................................                [100%]\nrun 0: rows=100 verify={'ok': True, 'breaks': []}\nrun 1: rows=100 verify={'ok': True, 'breaks': []}\nrun 2: rows=100 verify={'ok': True, 'breaks': []}\n",
+      "ran_at": "2026-09-10T21:05:24+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "3cd41fe20dee41fe8775d1b09974f9b67f18ef8e459f4d990944ccf02d2f3e7c"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-integrity-before-decisions",
+    "task_id": "KB2",
+    "domain": "software",
+    "status": "solid",
+    "summary": "runtime preflight (chains + readability) before scheduling, decisions, digest, and every terminal exit; readers throw, exit 9 ledger_unreadable",
+    "predecessors": [
+      "self::kb-redesign-note"
+    ],
+    "evidence": "2b6bbbc",
+    "verification": {
+      "command": "npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/integrity.test.js",
+      "cwd": "orchestrator",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract; reviewed, verified in an isolated worktree, and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T21:06:09.851685+00:00",
+    "git_commit": "3a7fa39",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/integrity.test.js",
+      "exit_code": 0,
+      "duration_s": 18.2,
+      "output_sha256": "941323d7409adf2958c47abb01b8d4ceff12cd70ee22b3d7f69e8dde2ab713c7",
+      "output_tail": "agnostics when Python is unavailable\n  ---\n  duration_ms: 298.220525\n  ...\n# Subtest: mission_complete rechecks ledgers after readiness probes\nok 16 - mission_complete rechecks ledgers after readiness probes\n  ---\n  duration_ms: 734.990177\n  ...\n# Subtest: no_ready_jobs rechecks ledgers after readiness probes\nok 17 - no_ready_jobs rechecks ledgers after readiness probes\n  ---\n  duration_ms: 727.694995\n  ...\n# Subtest: human_pause cannot bypass integrity verification\nok 18 - human_pause cannot bypass integrity verification\n  ---\n  duration_ms: 229.749583\n  ...\n# Subtest: zero_waves cannot bypass integrity verification\nok 19 - zero_waves cannot bypass integrity verification\n  ---\n  duration_ms: 229.600644\n  ...\n# Subtest: digest checks corruption introduced by a worker before publishing a decision\nok 20 - digest checks corruption introduced by a worker before publishing a decision\n  ---\n  duration_ms: 1052.381485\n  ...\n# Subtest: gate_halt checks corruption introduced by a worker before publishing a decision\nok 21 - gate_halt checks corruption introduced by a worker before publishing a decision\n  ---\n  duration_ms: 1023.625327\n  ...\n# Subtest: dry_run rechecks ledgers after a commit hook corrupts claims\nok 22 - dry_run rechecks ledgers after a commit hook corrupts claims\n  ---\n  duration_ms: 1392.214778\n  ...\n# Subtest: max_waves rechecks ledgers after a commit hook corrupts claims\nok 23 - max_waves rechecks ledgers after a commit hook corrupts claims\n  ---\n  duration_ms: 1358.452312\n  ...\n# Subtest: next_wave rechecks ledgers after a commit hook corrupts claims\nok 24 - next_wave rechecks ledgers after a commit hook corrupts claims\n  ---\n  duration_ms: 1365.809944\n  ...\n# Subtest: commit_failure rechecks ledgers after a commit hook corrupts claims\nok 25 - commit_failure rechecks ledgers after a commit hook corrupts claims\n  ---\n  duration_ms: 1381.999154\n  ...\n1..25\n# tests 25\n# suites 0\n# pass 25\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 14944.236338\n",
+      "ran_at": "2026-09-10T21:05:51+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "244595ff3300b94006b7481a93115d5eb7e85a02a8f45d1231303dfc69921e66"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-validator-binding",
+    "task_id": "KB3",
+    "domain": "software",
+    "status": "solid",
+    "summary": "adversarial validation frozen and hash-bound to the reviewed submission; evidence paths contained; pack re-audited per phase; blank judge reasons reject; full reviews retained",
+    "predecessors": [
+      "self::kb-redesign-note"
+    ],
+    "evidence": "9e99de9",
+    "verification": {
+      "command": "npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/validator_binding.test.js",
+      "cwd": "orchestrator",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract; reviewed, verified in an isolated worktree, and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T21:06:16.067746+00:00",
+    "git_commit": "3a7fa39",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/validator_binding.test.js",
+      "exit_code": 0,
+      "duration_s": 6.065,
+      "output_sha256": "346c9d856290a4b880403d613399a1c76d62886526b05754a4815a019924cccf",
+      "output_tail": "\n  ...\n# Subtest: binding (g): number judge reasons fail closed with the specified reason\nok 16 - binding (g): number judge reasons fail closed with the specified reason\n  ---\n  duration_ms: 0.131029\n  ...\n# Subtest: binding (g): object judge reasons fail closed with the specified reason\nok 17 - binding (g): object judge reasons fail closed with the specified reason\n  ---\n  duration_ms: 0.11084\n  ...\n# Subtest: binding (g): empty judge reasons fail closed with the specified reason\nok 18 - binding (g): empty judge reasons fail closed with the specified reason\n  ---\n  duration_ms: 0.105109\n  ...\n# Subtest: binding (g): blank judge reasons fail closed with the specified reason\nok 19 - binding (g): blank judge reasons fail closed with the specified reason\n  ---\n  duration_ms: 0.2505\n  ...\n# Subtest: binding (g): an admit without reasons creates a repair obligation instead of a result\nok 20 - binding (g): an admit without reasons creates a repair obligation instead of a result\n  ---\n  duration_ms: 199.555769\n  ...\n# Subtest: binding (h): admit retains the full review, candidate hash, row, and journal link\nok 21 - binding (h): admit retains the full review, candidate hash, row, and journal link\n  ---\n  duration_ms: 143.454147\n  ...\n# Subtest: binding (h): reject retains the full review, candidate hash, row, and journal link\nok 22 - binding (h): reject retains the full review, candidate hash, row, and journal link\n  ---\n  duration_ms: 137.583742\n  ...\n# Subtest: candidate hashes ignore object key order and bind nested submission fields\nok 23 - candidate hashes ignore object key order and bind nested submission fields\n  ---\n  duration_ms: 10.213585\n  ...\n# Subtest: a failed judge process retains its already-written raw output without admitting\nok 24 - a failed judge process retains its already-written raw output without admitting\n  ---\n  duration_ms: 153.670261\n  ...\n1..24\n# tests 24\n# suites 0\n# pass 24\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2881.627703\n",
+      "ran_at": "2026-09-10T21:06:10+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "3b8b76529ee15ade84567b24f7ffbd8f07519c090be7fb46bf7a73724acaec7d"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-registry-candidate-binding",
+    "task_id": "KB4",
+    "domain": "software",
+    "status": "solid",
+    "summary": "skill registry admits candidate bytes only: exactly one Verify block, installed self-reads rejected, admission receipts gate discovery, drafts scaffolded outside the registry",
+    "predecessors": [
+      "self::kb-redesign-note"
+    ],
+    "evidence": "d39ee93",
+    "verification": {
+      "command": "python3 -m pytest tests/test_skill_registry.py tests/test_skill_loading.py -q",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "skills_invalid",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker in two revertible parts (3c69d55 seven skills; d39ee93 registry); verified in an isolated worktree and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T21:14:41.592726+00:00",
+    "git_commit": "d39ee93",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_skill_registry.py tests/test_skill_loading.py -q",
+      "exit_code": 0,
+      "duration_s": 19.625,
+      "output_sha256": "3a3ed778ecbb161232a9a064caf28fab082c2fe632ff7439eec160feb5317278",
+      "output_tail": ".......................................................                  [100%]\n",
+      "ran_at": "2026-09-10T21:14:21+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "3a4198c1a4b7256c57d8a7b29f2c7f7385ff471f24efd8c1c8c0a2d0559afe5e"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-identity-revisions",
+    "task_id": "KB5",
+    "domain": "software",
+    "status": "solid",
+    "summary": "explicit revision model: supersedes links by row_hash, per-ledger semantic keys with free status transitions, retired knowledge status with dependent protection, idempotent trial request identity, batch dedup after validation",
+    "predecessors": [
+      "self::kb-ledger-transaction"
+    ],
+    "evidence": "7aacb9a",
+    "verification": {
+      "command": "python3 -m pytest tests/test_identity_revisions.py tests/test_dag_mermaid.py -q && cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/dag.test.js",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract; reviewed, verified in an isolated worktree at HEAD, and adjudicated by the orchestrating session; fixture patch for four out-of-scope files applied with the node",
+    "timestamp": "2026-09-10T21:58:51.800322+00:00",
+    "git_commit": "e60bbe9",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "python3 -m pytest tests/test_identity_revisions.py tests/test_dag_mermaid.py -q && cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/dag.test.js",
+      "exit_code": 0,
+      "duration_s": 5.73,
+      "output_sha256": "3def169e335226d46ad48b96472694d4e6c1ed97513088545489908cac1e1bf3",
+      "output_tail": "........................................................................ [ 92%]\n......                                                                   [100%]\nTAP version 13\n# Subtest: ready frontier: only nodes whose predecessors are ALL solid\nok 1 - ready frontier: only nodes whose predecessors are ALL solid\n  ---\n  duration_ms: 2.560104\n  ...\n# Subtest: missing predecessor blocks readiness (waits for acquisition)\nok 2 - missing predecessor blocks readiness (waits for acquisition)\n  ---\n  duration_ms: 0.183009\n  ...\n# Subtest: amended rows are skipped; latest row wins\nok 3 - amended rows are skipped; latest row wins\n  ---\n  duration_ms: 0.2823\n  ...\n# Subtest: cycles never become ready and do not hang\nok 4 - cycles never become ready and do not hang\n  ---\n  duration_ms: 0.30875\n  ...\n# Subtest: open obligations attach to their nodes from the claim ledger\nok 5 - open obligations attach to their nodes from the claim ledger\n  ---\n  duration_ms: 0.194189\n  ...\n# Subtest: missionComplete only when every node is solid (and mission non-empty)\nok 6 - missionComplete only when every node is solid (and mission non-empty)\n  ---\n  duration_ms: 0.318169\n  ...\n# Subtest: a retired node is neither ready nor an obstacle to completion\nok 7 - a retired node is neither ready nor an obstacle to completion\n  ---\n  duration_ms: 0.16701\n  ...\n# Subtest: a retired predecessor does not satisfy a dependent\nok 8 - a retired predecessor does not satisfy a dependent\n  ---\n  duration_ms: 0.276099\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 176.057639\n",
+      "ran_at": "2026-09-10T21:58:46+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "e0475c215f852e38f4f67fcda5e2ac6701d7358e76964ad4476437fc21641ec6"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-checkpoint-manifest",
+    "task_id": "KB6",
+    "domain": "software",
+    "status": "solid",
+    "summary": "checkpoint manifest: every wave commit records ledger heads, row counts, and legacy-prefix digests and is verified against HEAD's manifest before replacement; tail deletion, missing ledgers, prefix edits, and torn tails halt the commit",
+    "predecessors": [
+      "self::kb-ledger-transaction"
+    ],
+    "evidence": "e60bbe9",
+    "verification": {
+      "command": "cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/checkpoint.test.js",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract in an isolated worktree; reviewed, verified in a second worktree at HEAD, and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T21:59:47.573556+00:00",
+    "git_commit": "dcddc72",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/checkpoint.test.js",
+      "exit_code": 0,
+      "duration_s": 10.241,
+      "output_sha256": "e60822eb9476a294e056dde2f0b8a182d2306b86299045f1bd06205d1b20a79a",
+      "output_tail": "t replace HEAD as the trust anchor\nok 15 - a forged working checkpoint cannot replace HEAD as the trust anchor\n  ---\n  duration_ms: 209.619681\n  ...\n# Subtest: a deleted working checkpoint cannot replace HEAD as the trust anchor\nok 16 - a deleted working checkpoint cannot replace HEAD as the trust anchor\n  ---\n  duration_ms: 201.849486\n  ...\n# Subtest: equal counts and a previous head moved to a later index cannot hide replaced history\nok 17 - equal counts and a previous head moved to a later index cannot hide replaced history\n  ---\n  duration_ms: 357.837005\n  ...\n# Subtest: two builds around an append each describe one consistent byte snapshot\nok 18 - two builds around an append each describe one consistent byte snapshot\n  ---\n  duration_ms: 230.926009\n  ...\n# Subtest: direct verification reports a newly added ledger that became torn after its build\nok 19 - direct verification reports a newly added ledger that became torn after its build\n  ---\n  duration_ms: 221.483118\n  ...\n# Subtest: inventory includes both layouts without shadowing, new papers, empty files and legacy-only prefixes\nok 20 - inventory includes both layouts without shadowing, new papers, empty files and legacy-only prefixes\n  ---\n  duration_ms: 240.289109\n  ...\n# Subtest: an unterminated valid JSON row is torn and cannot build even a first checkpoint\nok 21 - an unterminated valid JSON row is torn and cannot build even a first checkpoint\n  ---\n  duration_ms: 164.263532\n  ...\n# Subtest: checkpoint ledger filenames match the executable contract manifest\nok 22 - checkpoint ledger filenames match the executable contract manifest\n  ---\n  duration_ms: 64.305522\n  ...\n# Subtest: CLI build prints a checkpoint; verify uses HEAD and exits 0 clean or 1 after tail deletion\nok 23 - CLI build prints a checkpoint; verify uses HEAD and exits 0 clean or 1 after tail deletion\n  ---\n  duration_ms: 800.66657\n  ...\n1..23\n# tests 23\n# suites 0\n# pass 23\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 6868.85138\n",
+      "ran_at": "2026-09-10T21:59:37+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "b770f350bb1d286387db0d895b547213a5a8b7e18f0381c7b4fd29b8852812ca"
+  },
+  {
+    "paper": "self",
+    "node_id": "self::kb-memory-preservation",
+    "task_id": "KB7",
+    "domain": "software",
+    "status": "solid",
+    "summary": "durable mission memory: pre-prune archive of exact note bytes, whole generated-block replacement, accepted-results refresh, run/wave identity across restarts, truthful digest path and a final digest on every terminal exit",
+    "predecessors": [
+      "self::kb-integrity-before-decisions"
+    ],
+    "evidence": "dcddc72",
+    "verification": {
+      "command": "cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/memory.test.js dist/test/observer.test.js dist/test/digest.test.js",
+      "timeout_s": 900
+    },
+    "metric_at_landing": {
+      "name": "tests_failed",
+      "value": 0,
+      "threshold": 0,
+      "pass": true
+    },
+    "notes": "implemented by a GPT-6 (gpt-6-astra, effort max) worker with a test-first contract in an isolated worktree; reviewed, verified in a second worktree at HEAD, and adjudicated by the orchestrating session",
+    "timestamp": "2026-09-10T22:00:03.308757+00:00",
+    "git_commit": "dcddc72",
+    "actor_role": "validator",
+    "verification_run": {
+      "command": "cd orchestrator && npx tsc -p . && env -u CHANDRA_ROLE node --test dist/test/memory.test.js dist/test/observer.test.js dist/test/digest.test.js",
+      "exit_code": 0,
+      "duration_s": 15.56,
+      "output_sha256": "30b3b1226450ecc38fbe923e59abad30c79bef81465191c7c256e83864c179c5",
+      "output_tail": "89806\n  ...\n# Subtest: memory: archive exact pre-prune bytes and replace an oversized block whole\nok 23 - memory: archive exact pre-prune bytes and replace an oversized block whole\n  ---\n  duration_ms: 141.309828\n  ...\n# Subtest: memory: never-committed through-line survives even when pruning fails\nok 24 - memory: never-committed through-line survives even when pruning fails\n  ---\n  duration_ms: 141.372538\n  ...\n# Subtest: memory: observer refreshes the accepted-results block after a gated append\nok 25 - memory: observer refreshes the accepted-results block after a gated append\n  ---\n  duration_ms: 350.06277\n  ...\n# Subtest: memory: repeated wave numbers retain each run's own plan and nodal run id\nok 26 - memory: repeated wave numbers retain each run's own plan and nodal run id\n  ---\n  duration_ms: 3.254483\n  ...\n# Subtest: memory review: insert accepted results outside generated headings\nok 27 - memory review: insert accepted results outside generated headings\n  ---\n  duration_ms: 279.155832\n  ...\n# Subtest: memory review: inline marker examples in results survive repeated refreshes\nok 28 - memory review: inline marker examples in results survive repeated refreshes\n  ---\n  duration_ms: 352.102876\n  ...\n# Subtest: memory review: accepted-results pointer at EOF refreshes without a trailing newline\nok 29 - memory review: accepted-results pointer at EOF refreshes without a trailing newline\n  ---\n  duration_ms: 210.966898\n  ...\n# Subtest: memory review: an incomplete result ledger cannot refresh an apparently healthy note\nok 30 - memory review: an incomplete result ledger cannot refresh an apparently healthy note\n  ---\n  duration_ms: 214.343151\n  ...\n# Subtest: memory review: prose rewrites without a newline cannot swallow a block boundary\nok 31 - memory review: prose rewrites without a newline cannot swallow a block boundary\n  ---\n  duration_ms: 280.16154\n  ...\n1..31\n# tests 31\n# suites 0\n# pass 31\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 12258.597106\n",
+      "ran_at": "2026-09-10T21:59:47+00:00"
+    },
+    "node_seq": 2,
+    "row_hash": "bd157bda7fa0a6538957b74e1fac9e5500687fc70a050da21fcc64454df8a0a4"
+  }
+]

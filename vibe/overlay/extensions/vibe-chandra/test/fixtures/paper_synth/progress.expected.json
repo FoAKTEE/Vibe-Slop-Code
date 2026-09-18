@@ -1,0 +1,110 @@
+[
+  {
+    "paper": "synth",
+    "node_id": "synth::a",
+    "status": "solid",
+    "n_knowledge": 3,
+    "n_trials": 4,
+    "pass": 1,
+    "fail": 3
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::b",
+    "status": "solid",
+    "n_knowledge": 2,
+    "n_trials": 2,
+    "pass": 1,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::d",
+    "status": "hypothesis",
+    "n_knowledge": 2,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::e",
+    "status": "hypothesis",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::g",
+    "status": "preliminary",
+    "n_knowledge": 2,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::join5",
+    "status": "future",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::orphan",
+    "status": null,
+    "n_knowledge": 0,
+    "n_trials": 1,
+    "pass": 0,
+    "fail": 1
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::r1",
+    "status": "blocking",
+    "n_knowledge": 1,
+    "n_trials": 2,
+    "pass": 0,
+    "fail": 2
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::r2",
+    "status": "hypothesis",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::r3",
+    "status": "hypothesis",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::ready",
+    "status": "hypothesis",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  },
+  {
+    "paper": "synth",
+    "node_id": "synth::selfloop",
+    "status": "hypothesis",
+    "n_knowledge": 1,
+    "n_trials": 0,
+    "pass": 0,
+    "fail": 0
+  }
+]
