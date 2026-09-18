@@ -68,6 +68,50 @@ is never used. `vibe --vibe-which` names the backend it resolves to — the pack
 when there is one, else the dev build. To undo: `install-cli.sh --uninstall` removes the
 symlink, and `rm -rf vibe/VSCode-*` removes the app.
 
+## Remote server
+
+    vibe/scripts/build-server.sh [--arch x64|arm64] [--package-only]   # needs Docker running
+    vibe/scripts/verify-server.sh <tarball> [--host <ssh-host>]
+
+A remote (SSH) window talks to a server on the host whose `commit` equals the client's.
+Microsoft's server build is licensed for their products only, and nobody publishes one
+for our pin, so Vibe builds its own: `vibe-server`, upstream's remote extension host from
+the same checkout. The JS comes from upstream's esbuild bundler (`build/next`, target
+`server`) — the way the desktop app is packaged at this pin — and the gulp task
+`vscode-reh-linux-<arch>-ci` assembles it with the target's Node. The top-level task
+`vscode-reh-linux-<arch>` is not used: it still starts the legacy mangling compile, which
+fails at this pin after twenty minutes. The
+native modules cannot come from the checkout, where they are built for this Mac, so
+`remote/` is npm-installed in a linux container (`scripts/server/`: AlmaLinux 8, i.e. glibc
+2.28, the floor of the Node the server ships) into `.build/server/linux-<arch>/remote/`, and
+gulp takes `node_modules` from there through `VIBE_REH_REMOTE` — the one `// vibe:` edit in
+`build/gulpfile.reh.ts`. The checkout's own `remote/node_modules` is never touched.
+
+The result is `.build/server/vibe-server-linux-<arch>-<commit>.tar.gz` plus `.sha256`, one
+top-level directory, gitignored. `<commit>` is what upstream stamps — the checkout's git
+HEAD, hence the pinned upstream commit — and `build-server.sh` refuses to build when a
+packaged client next to it carries another one. `--print-plan` prints the steps and runs
+nothing; `--package-only` reuses the previous bundle and extensions (for the second arch).
+The x64 natives are built under emulation, which is the slow part of a first run.
+
+`verify-server.sh` unpacks a scratch copy and checks the layout, the stamped
+`product.json`, that every native binary is ELF for the target with nothing left over from
+another platform, and that none needs a glibc newer than 2.28 (`$VIBE_SERVER_MAX_GLIBC`).
+With `--host` it also uploads the tarball into a scratch directory under the host's `$HOME`,
+asks the server for its version, loads every native module (including a real pty), starts
+the server on a loopback port, stops it and removes the directory again. `~/.vscode-server`
+is never touched, and neither is `~/.vibe-server`: the server creates its data folder as
+soon as its code is loaded, `--version` included, so every invocation is pointed at the
+scratch directory and the last check fails if `~/.vibe-server` changed. A `note:` line
+names prebuilt helpers that upstream ships and that need more than the ceiling (today the
+`@microsoft/mxc-sdk` sandbox launcher, glibc 2.34): the server runs without them, their
+feature does not.
+
+Install is upload, not download: there is no URL that hosts this server, and many hosts
+have no outbound internet. On connect the SSH resolver looks for the tarball that matches
+the client's commit, uploads it over the connection it already has and unpacks it into
+`~/.vibe-server/bin/<commit>/`.
+
 ## Bumping the upstream pin
 
 1. `scripts/check.sh` — make sure nothing in the checkout is unexported.
