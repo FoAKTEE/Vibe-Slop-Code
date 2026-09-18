@@ -239,6 +239,14 @@ export class WorkspaceBarMainService extends Disposable implements IWorkspaceBar
 	}
 
 	private onDidSignalReadyWindow(window: ICodeWindow): void {
+
+		// Only the first load of a window associates what it loads before `onWillLoad` fires. A window
+		// that loads in place (a folder opens in a window without one, another folder opens in the
+		// same window, a reload) may veto to unload: it is what it was until the load finished, so
+		// `onWillLoadWindow` saw the workspace and remote authority of before. A window that is ready
+		// is what it shows, also when it entered a workspace without loading at all.
+		this.updateEntries();
+
 		if (this.windowsHiddenUntilReady.has(window.id)) {
 			this.reveal(window);
 		} else if (window.id === this.presentedWindowId) {

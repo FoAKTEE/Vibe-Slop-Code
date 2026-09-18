@@ -153,6 +153,10 @@ suite('WorkspaceBarMainService', () => {
 		isDestroyed(): boolean { return this.destroyed; }
 	}
 
+	function toWorkspaceIdentifier(options: ITestWindowOptions): IWorkspaceIdentifier | ISingleFolderWorkspaceIdentifier | undefined {
+		return options.folder ? { id: options.folder.path, uri: options.folder } : options.workspace ? { id: options.workspace.path, configPath: options.workspace } : undefined;
+	}
+
 	interface ITestWindowOptions {
 		readonly folder?: URI;
 		readonly workspace?: URI;
@@ -204,15 +208,44 @@ suite('WorkspaceBarMainService', () => {
 		get isFullScreen(): boolean { return this.testWin.fullScreen; }
 		toggleFullScreen(): void { this.testWin.setFullScreen(!this.testWin.fullScreen); }
 
+		private pendingLoad: ITestWindowOptions | undefined;
+
+		/**
+		 * As the real window (`CodeWindow.load`): only the first load associates what is loaded
+		 * right away. A window that was loaded before may veto to unload, so it is what it was for
+		 * as long as it navigates: `onWillLoad` fires while `openedWorkspace` and `remoteAuthority`
+		 * are still the old ones, they change when the load finished (`did-finish-load`).
+		 */
 		testLoad(options: ITestWindowOptions, reason: LoadReason): void {
-			this.config = { isSessionsWindow: options.sessionsWindow } as Partial<INativeWindowConfiguration> as INativeWindowConfiguration;
-			this.openedWorkspace = options.folder ? { id: options.folder.path, uri: options.folder } : options.workspace ? { id: options.workspace.path, configPath: options.workspace } : undefined;
-			this.remoteAuthority = options.remoteAuthority;
-			this.isExtensionDevelopmentHost = !!options.extensionDevelopment;
-			this._onWillLoad.fire({ workspace: this.openedWorkspace, reason });
+			if (reason === LoadReason.INITIAL) {
+				this.applyLoad(options);
+			} else {
+				this.pendingLoad = options;
+			}
+
+			this.isReady = false;
+			this._onWillLoad.fire({ workspace: toWorkspaceIdentifier(options), reason });
 		}
 
+		testFinishLoad(): void {
+			if (this.pendingLoad) {
+				this.applyLoad(this.pendingLoad);
+				this.pendingLoad = undefined;
+			}
+		}
+
+		private applyLoad(options: ITestWindowOptions): void {
+			this.config = { isSessionsWindow: options.sessionsWindow } as Partial<INativeWindowConfiguration> as INativeWindowConfiguration;
+			this.openedWorkspace = toWorkspaceIdentifier(options);
+			this.remoteAuthority = options.remoteAuthority;
+			this.isExtensionDevelopmentHost = !!options.extensionDevelopment;
+		}
+
+		/**
+		 * The workbench reports that it is ready, which is after the load finished.
+		 */
 		testSignalReady(): void {
+			this.testFinishLoad();
 			this.isReady = true;
 			this._onDidSignalReady.fire();
 		}
@@ -323,6 +356,15 @@ suite('WorkspaceBarMainService', () => {
 		testSignalReady(window: TestCodeWindow): void {
 			window.testSignalReady();
 			this._onDidSignalReadyWindow.fire(window);
+		}
+
+		/**
+		 * As the real service: a window that is around loads something else, or the same
+		 * again, in place. The workbench that comes up signals that it is ready, again.
+		 */
+		testLoadInPlace(window: TestCodeWindow, options: ITestWindowOptions, reason: LoadReason.LOAD | LoadReason.RELOAD = LoadReason.LOAD): void {
+			window.testLoad(options, reason);
+			this.testSignalReady(window);
 		}
 
 		/**
@@ -467,8 +509,10 @@ suite('WorkspaceBarMainService', () => {
 			await timeout(100);
 			assert.deepStrictEqual(events, [['Local/alpha#2', 'myhost/delta#3*']]);
 
-			// a window that loads another folder changes its entry
+			// a window that loads another folder changes its entry once it did: it may still veto
 			windowA.testLoad({ folder: folderC }, LoadReason.LOAD);
+			assert.deepStrictEqual(await entriesOf(harness), ['Local/alpha#2', 'myhost/delta#3*']);
+			harness.windows.testSignalReady(windowA);
 			assert.deepStrictEqual(await entriesOf(harness), ['Local/gamma#2', 'myhost/delta#3*']);
 
 			harness.windows.testCloseWindow(windowA);
@@ -476,6 +520,68 @@ suite('WorkspaceBarMainService', () => {
 
 			await timeout(100);
 			assert.deepStrictEqual(events.slice(1), [['myhost/delta#3*']]);
+		});
+
+		for (const host of [
+			{ name: 'local', label: 'Local', remoteAuthority: undefined, folder: (name: string) => URI.file(`/Users/me/${name}`) },
+			{ name: 'remote', label: 'anta', remoteAuthority: 'ssh-remote+anta', folder: (name: string) => URI.from({ scheme: 'vscode-remote', authority: 'ssh-remote+anta', path: `/home/me/${name}` }) }
+		]) {
+			const remoteAuthority = host.remoteAuthority;
+
+			fakeTimersTest(`a window without folder that loads a folder in place gets its entry (${host.name})`, async () => {
+				const harness = createHarness();
+				harness.windows.testOpenReadyWindow({ folder: folderA });
+				const window = harness.windows.testOpenReadyWindow({ remoteAuthority }); // as `+` > host opens it: connected, no folder yet
+				assert.deepStrictEqual([await entriesOf(harness), visibleWindows(harness)], [['Local/alpha#1'], [window.id]]);
+
+				harness.windows.testLoadInPlace(window, { folder: host.folder('packages'), remoteAuthority });
+				assert.deepStrictEqual([await entriesOf(harness), visibleWindows(harness)], [['Local/alpha#1', `${host.label}/packages#2*`], [window.id]]);
+			});
+
+			fakeTimersTest(`a window that loads another folder in place moves to the entry of that folder (${host.name})`, async () => {
+				const harness = createHarness();
+				const window = harness.windows.testOpenReadyWindow({ folder: host.folder('one'), remoteAuthority });
+				const pinned = harness.windows.testOpenReadyWindow({ folder: host.folder('pinned'), remoteAuthority });
+				await harness.service.pin(await entryId(harness, 'pinned'));
+
+				// the entry of the folder goes away with it, the one of the new folder is new: last of its host
+				harness.windows.testLoadInPlace(window, { folder: host.folder('two'), remoteAuthority });
+				assert.deepStrictEqual(await entriesOf(harness), [`${host.label}/pinned#2*!`, `${host.label}/two#1`]);
+
+				// the entry of a folder that is pinned stays around without its window
+				harness.windows.testLoadInPlace(pinned, { folder: host.folder('three'), remoteAuthority });
+				assert.deepStrictEqual(await entriesOf(harness), [`${host.label}/pinned!`, `${host.label}/two#1`, `${host.label}/three#2*`]);
+			});
+
+			fakeTimersTest(`a window that reloads keeps its entry: no churn, no duplicate (${host.name})`, async () => {
+				const harness = createHarness();
+				harness.windows.testOpenReadyWindow({ folder: folderA });
+				const window = harness.windows.testOpenReadyWindow({ folder: host.folder('one'), remoteAuthority });
+				await timeout(100);
+
+				const events: string[][] = [];
+				disposables.add(harness.service.onDidChangeEntries(entries => events.push(describeEntries(entries))));
+
+				harness.windows.testLoadInPlace(window, { folder: host.folder('one'), remoteAuthority }, LoadReason.RELOAD);
+				await timeout(100);
+				assert.deepStrictEqual([await entriesOf(harness), events, visibleWindows(harness)], [['Local/alpha#1', `${host.label}/one#2*`], [], [window.id]]);
+			});
+		}
+
+		fakeTimersTest('a load in place that is vetoed or still navigates leaves the entries alone', async () => {
+			const harness = createHarness();
+			const window = harness.windows.testOpenReadyWindow({ folder: folderA });
+
+			window.testLoad({ folder: folderB }, LoadReason.LOAD); // never finishes
+			assert.deepStrictEqual(await entriesOf(harness), ['Local/alpha#1*']);
+		});
+
+		fakeTimersTest('a local window that connects to a host in place moves to the group of the host', async () => {
+			const harness = createHarness();
+			const window = harness.windows.testOpenReadyWindow({ folder: folderA });
+
+			harness.windows.testLoadInPlace(window, { folder: URI.from({ scheme: 'vscode-remote', authority: 'ssh-remote+anta', path: '/home/me/packages' }), remoteAuthority: 'ssh-remote+anta' });
+			assert.deepStrictEqual(await entriesOf(harness), ['anta/packages#1*']);
 		});
 
 		fakeTimersTest('pinned entries and their order survive the session', async () => {
