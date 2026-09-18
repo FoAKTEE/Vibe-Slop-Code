@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#
+# vibe — the Vibe Studio Code command (the `code` of this fork).
+#
+# Backend resolution, first hit wins:
+#   1. $VIBE_APP                                 (explicit override, must exist)
+#   2. /Applications/Vibe Studio Code.app        (installed)
+#   3. packaged build: vibe/.build/… or the checkout's sibling VSCode-darwin-*
+#   4. dev build: vibe/vscode/scripts/code.sh    (with the pinned toolchain)
+#
+# `vibe --vibe-which` prints the chosen backend and exits without launching.
+# Compatible with the bash 3.2 that ships with macOS.
+
+set -u
+
+APP_NAME="Vibe Studio Code.app"
+EXE_NAME="Vibe"
+
+# Resolve our own real location through symlinks (no `readlink -f` on macOS).
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+	DIR="$(cd -P "$(dirname "$SOURCE")" > /dev/null 2>&1 && pwd)"
+	SOURCE="$(readlink "$SOURCE")"
+	case "$SOURCE" in
+		/*) ;;
+		*) SOURCE="$DIR/$SOURCE" ;;
+	esac
+done
+BIN_DIR="$(cd -P "$(dirname "$SOURCE")" > /dev/null 2>&1 && pwd)"
+VIBE_ROOT="$(dirname "$BIN_DIR")"
+CHECKOUT="$VIBE_ROOT/vscode"
+TOOLCHAIN="$VIBE_ROOT/.toolchain/node/bin"
+
+BACKEND=""
+APP=""
+TARGET=""
+
+# The darwin packaging task ships the bundled CLI at Contents/Resources/app/bin
+# under the fixed name `code` (build/gulpfile.vscode.ts renames code.sh to
+# `bin/code`), so try the branded name first and fall back to the upstream one.
+resolve_app() {
+	local app="$1" candidate
+	[ -d "$app" ] || return 1
+	for candidate in \
+		"$app/Contents/Resources/app/bin/vibe" \
+		"$app/Contents/Resources/app/bin/code" \
+		"$app/Contents/MacOS/$EXE_NAME"
+	do
+		if [ -x "$candidate" ]; then
+			APP="$app"
+			TARGET="$candidate"
+			BACKEND="app"
+			return 0
+		fi
+	done
+	return 1
+}
+
+# 1. explicit override
+if [ -n "${VIBE_APP:-}" ]; then
+	if ! resolve_app "$VIBE_APP"; then
+		echo "vibe: VIBE_APP does not point at a usable app bundle: $VIBE_APP" >&2
+		exit 1
+	fi
+fi
+
+# 2. installed app
+if [ -z "$BACKEND" ]; then
+	resolve_app "/Applications/$APP_NAME" || true
+fi
+
+# 3. locally packaged app (gulp vscode-darwin-<arch> writes next to the checkout)
+if [ -z "$BACKEND" ]; then
+	for candidate in \
+		"$VIBE_ROOT/.build/$APP_NAME" \
+		"$VIBE_ROOT/.build"/VSCode-darwin-*/"$APP_NAME" \
+		"$VIBE_ROOT"/VSCode-darwin-*/"$APP_NAME"
+	do
+		resolve_app "$candidate" && break
+	done
+fi
+
+# 4. dev build
+if [ -z "$BACKEND" ]; then
+	if [ -x "$CHECKOUT/scripts/code.sh" ]; then
+		BACKEND="dev"
+		TARGET="$CHECKOUT/scripts/code.sh"
+	else
+		echo "vibe: no Vibe Studio Code found." >&2
+		echo "vibe: looked for an app bundle (\$VIBE_APP, /Applications, $VIBE_ROOT)" >&2
+		echo "vibe: and for a dev checkout at $CHECKOUT" >&2
+		exit 1
+	fi
+fi
+
+if [ "${1:-}" = "--vibe-which" ]; then
+	echo "backend: $BACKEND"
+	if [ "$BACKEND" = "app" ]; then
+		echo "app: $APP"
+	else
+		echo "checkout: $CHECKOUT"
+	fi
+	echo "target: $TARGET"
+	exit 0
+fi
+
+if [ "$BACKEND" = "app" ]; then
+	exec "$TARGET" "$@"
+fi
+
+[ -d "$TOOLCHAIN" ] && PATH="$TOOLCHAIN:$PATH" && export PATH
+exec "$TARGET" "$@"
