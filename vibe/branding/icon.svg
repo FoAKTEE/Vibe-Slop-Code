@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+	<!-- App icon: a directed hypergraph of five rectangular nodes on the macOS tile grid
+	     (824 px tile on a 1024 px canvas). a and b meet in one junction and one arrow
+	     continues into c (an AND-join); c -> d and c -> e are plain edges. c is solid
+	     (green), e is a hypothesis (blue outline). Rendered by scripts/make-icon.sh. -->
+	<rect data-tile="app" x="104" y="104" width="816" height="816" rx="181" fill="#1B2030" stroke="#36405A" stroke-width="8"/>
+	<g fill="none" stroke="#97A2B9" stroke-width="24" stroke-linecap="round">
+		<path data-edge="a,b>c" d="M328 300C328 364 512 322 512 386M696 300C696 364 512 322 512 386V420"/>
+		<path data-edge="c>d" d="M512 568C512 638 328 590 328 660V684"/>
+		<path data-edge="c>e" d="M512 568C512 638 696 590 696 660V684"/>
+	</g>
+	<g fill="#97A2B9">
+		<path d="M512 456L485 412H539Z"/>
+		<path d="M328 724L301 680H355Z"/>
+		<path d="M696 724L669 680H723Z"/>
+	</g>
+	<circle data-junction="c" cx="512" cy="386" r="20" fill="#1B2030" stroke="#97A2B9" stroke-width="14"/>
+	<rect data-node="a" x="188" y="188" width="280" height="112" rx="20" fill="#E8ECF4"/>
+	<rect data-node="b" x="556" y="188" width="280" height="112" rx="20" fill="#E8ECF4"/>
+	<rect data-node="c" x="372" y="456" width="280" height="112" rx="20" fill="#3FCF8E"/>
+	<rect data-node="d" x="188" y="724" width="280" height="112" rx="20" fill="#E8ECF4"/>
+	<rect data-node="e" x="566" y="734" width="260" height="92" rx="10" fill="none" stroke="#4C9DFF" stroke-width="20"/>
+</svg>

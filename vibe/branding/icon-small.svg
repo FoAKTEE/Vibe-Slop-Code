@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+	<!-- The app icon redrawn for 32 px and below: the same five nodes and edges on the
+	     16 px pixel grid (64 units = one pixel), no curves, no arrowheads. The tile is one
+	     step lighter than the master's: there is no room for its hairline border here. -->
+	<rect data-tile="app" x="64" y="64" width="896" height="896" rx="192" fill="#252C40"/>
+	<g fill="#97A2B9">
+		<path data-edge="a,b>c" d="M256 256h64v64h384v-64h64v128H576v64H448v-64H256z"/>
+		<path data-edge="c>d c>e" d="M448 576h128v64h192v128h-64v-64H320v64h-64V640h192z"/>
+	</g>
+	<circle data-junction="c" cx="512" cy="352" r="64" fill="#C9D0DE"/>
+	<rect data-node="a" x="128" y="128" width="320" height="128" fill="#E8ECF4"/>
+	<rect data-node="b" x="576" y="128" width="320" height="128" fill="#E8ECF4"/>
+	<rect data-node="c" x="320" y="448" width="384" height="128" fill="#3FCF8E"/>
+	<rect data-node="d" x="128" y="768" width="320" height="128" fill="#E8ECF4"/>
+	<rect data-node="e" x="576" y="768" width="320" height="128" fill="#4C9DFF"/>
+</svg>

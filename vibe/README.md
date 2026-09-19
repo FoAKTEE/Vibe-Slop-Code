@@ -73,6 +73,23 @@ renames nothing on disk, so the last package keeps working until the next one. T
 `install-cli.sh --uninstall` removes the symlink, and `rm -rf vibe/VSCode-*` removes
 the app.
 
+## Icon
+
+    vibe/scripts/make-icon.sh [--check] [--out DIR]   # needs rsvg-convert, magick, iconutil
+
+The icon is the product's idea drawn small: a directed hypergraph of five rectangular
+nodes, two of which meet in one junction from which one arrow continues. The sources are
+three hand-written SVGs in `branding/`: `icon.svg` (the master on the macOS tile grid,
+48 px and up), `icon-small.svg` (redrawn on the 16 px pixel grid for 32 px and down) and
+`mark.svg` (the graph alone, `currentColor`). `make-icon.sh` renders them to the upstream
+paths in the checkout — `resources/darwin/code.icns`, `resources/win32/code.ico` and the
+two tile PNGs, `resources/linux/code.png`, the server favicon and PNGs, the in-workbench
+`code-icon.svg` and the four `letterpress-*.svg` editor watermarks — from where
+`export.sh` picks them up as patches. The same inputs give the same bytes, so `--check`
+re-renders into a temp dir and compares without writing; `--out DIR` renders elsewhere.
+The contract (five `<rect data-node>`, a `data-junction`, no text, no external reference)
+and the file formats are covered by `tests/test_vibe_icon.py`.
+
 ## Remote server
 
     vibe/scripts/build-server.sh [--arch x64|arm64] [--package-only]   # needs Docker running

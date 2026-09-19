@@ -1,0 +1,23 @@
+diff --git a/src/vs/workbench/browser/media/code-icon.svg b/src/vs/workbench/browser/media/code-icon.svg
+index cc61f81ea5a24c9af2be69565c82da531788efd6..004ee7100dfc83f8e8275261c712143fa75bc8d7 100644
+--- a/src/vs/workbench/browser/media/code-icon.svg
++++ b/src/vs/workbench/browser/media/code-icon.svg
+@@ -1 +1,16 @@
+-<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><style>.st0{fill:#f6f6f6;fill-opacity:0}.st1{fill:#fff}.st2{fill:#167abf}</style><path class="st0" d="M1024 1024H0V0h1024v1024z"/><path class="st1" d="M1024 85.333v853.333H0V85.333h1024z"/><path class="st2" d="M0 85.333h298.667v853.333H0V85.333zm1024 0v853.333H384V85.333h640zm-554.667 160h341.333v-64H469.333v64zm341.334 533.334H469.333v64h341.333l.001-64zm128-149.334H597.333v64h341.333l.001-64zm0-149.333H597.333v64h341.333l.001-64zm0-149.333H597.333v64h341.333l.001-64z"/></svg>
+\ No newline at end of file
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
++	<!-- The app icon redrawn for 32 px and below: the same five nodes and edges on the
++	     16 px pixel grid (64 units = one pixel), no curves, no arrowheads. The tile is one
++	     step lighter than the master's: there is no room for its hairline border here. -->
++	<rect data-tile="app" x="64" y="64" width="896" height="896" rx="192" fill="#252C40"/>
++	<g fill="#97A2B9">
++		<path data-edge="a,b>c" d="M256 256h64v64h384v-64h64v128H576v64H448v-64H256z"/>
++		<path data-edge="c>d c>e" d="M448 576h128v64h192v128h-64v-64H320v64h-64V640h192z"/>
++	</g>
++	<circle data-junction="c" cx="512" cy="352" r="64" fill="#C9D0DE"/>
++	<rect data-node="a" x="128" y="128" width="320" height="128" fill="#E8ECF4"/>
++	<rect data-node="b" x="576" y="128" width="320" height="128" fill="#E8ECF4"/>
++	<rect data-node="c" x="320" y="448" width="384" height="128" fill="#3FCF8E"/>
++	<rect data-node="d" x="128" y="768" width="320" height="128" fill="#E8ECF4"/>
++	<rect data-node="e" x="576" y="768" width="320" height="128" fill="#4C9DFF"/>
++</svg>

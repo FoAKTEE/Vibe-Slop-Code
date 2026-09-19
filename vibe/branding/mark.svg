@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260">
+	<!-- The graph of the app icon without its tile, one colour: a and b meet in one
+	     junction and one arrow continues into c; c -> d, c -> e; e is outlined. The
+	     size and viewBox are those of upstream's editor watermark, which it replaces. -->
+	<g fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round">
+		<path data-edge="a,b>c" d="M63 54C63 76 130 58 130 80M197 54C197 76 130 58 130 80V96"/>
+		<path data-edge="c>d" d="M130 151C130 177 63 159 63 185V192"/>
+		<path data-edge="c>e" d="M130 151C130 177 197 159 197 185V192"/>
+	</g>
+	<g fill="currentColor">
+		<path d="M130 109L120 93H140Z"/>
+		<path d="M63 206L53 190H73Z"/>
+		<path d="M197 206L187 190H207Z"/>
+		<circle data-junction="c" cx="130" cy="79" r="9"/>
+		<rect data-node="a" x="12" y="12" width="102" height="42" rx="7"/>
+		<rect data-node="b" x="146" y="12" width="102" height="42" rx="7"/>
+		<rect data-node="c" x="79" y="109" width="102" height="42" rx="7"/>
+		<rect data-node="d" x="12" y="206" width="102" height="42" rx="7"/>
+	</g>
+	<rect data-node="e" x="149.5" y="209.5" width="95" height="35" rx="3.5" fill="none" stroke="currentColor" stroke-width="7"/>
+</svg>
