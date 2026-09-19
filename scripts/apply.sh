@@ -8,6 +8,9 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 LC_ALL=C
 export LC_ALL
+# A root dotfile exports as a dot patch (.eslint-ignore -> .eslint-ignore.patch): with
+# dotglob the one *.patch glob sees it too, each patch once, all in C-locale order.
+shopt -s dotglob
 
 usage() { echo "usage: apply.sh [--force]" >&2; exit 2; }
 

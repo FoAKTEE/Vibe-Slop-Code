@@ -26,6 +26,7 @@ ALL_SCRIPTS = ["env.sh", *RUNNABLE]
 BASH = "/bin/bash" if Path("/bin/bash").exists() else shutil.which("bash")
 
 EXPECTED_PATCHES = {
+    ".eslint-ignore.patch",  # a root dotfile: its patch name starts with a dot too
     "product.json.patch",
     "resources__icon.bin.patch",
     "scripts__lint.sh.patch",
@@ -118,6 +119,7 @@ class World:
     def _make_upstream(self) -> None:
         up = self.upstream
         write(up / ".gitignore", "node_modules/\nout/\n")
+        write(up / ".eslint-ignore", "**/vendor/**\n")
         write(up / "product.json", '{\n\t"nameShort": "Code - OSS",\n\t"nameLong": "Code - OSS"\n}\n')
         write(up / "src/vs/workbench/browser/layout.ts",
               "".join(f"export const line{i} = {i};\n" for i in range(1, 13)))
@@ -138,6 +140,8 @@ class World:
         layout.write_text(layout.read_text().replace("line6 = 6", "line6 = 66")
                           + "export const workspaceBar = true;\n")
         (dev / "product.json").write_text('{\n\t"nameShort": "Vibe",\n\t"nameLong": "Vibe Slop Code"\n}\n')
+        with (dev / ".eslint-ignore").open("a") as fh:
+            fh.write("extensions/vibe-chandra/bin/**\n")
         (dev / "src/vs/base/common/obsolete.ts").unlink()
         (dev / "resources/icon.bin").write_bytes(bytes(reversed(range(256))) * 3)
         (dev / "scripts/lint.sh").chmod(0o755)
@@ -237,6 +241,7 @@ def test_export_writes_one_patch_per_path_and_mirrors_new_files(exported: World)
     assert "deleted file mode" in (w.patches / "src__vs__base__common__obsolete.ts.patch").read_text()
     assert "GIT binary patch" in (w.patches / "resources__icon.bin.patch").read_text()
     assert "new mode 100755" in (w.patches / "scripts__lint.sh.patch").read_text()
+    assert (w.patches / ".eslint-ignore.patch").read_text().startswith("diff --git a/.eslint-ignore b/.eslint-ignore\n")
 
     overlay = snapshot(w.overlay)
     assert overlay["extensions/vibe-chandra/src/model/graph.ts"] == (b"export const graph = 1;\n", False)
@@ -316,6 +321,12 @@ def test_check_passes_on_exported_state_and_fails_after_any_edit(exported: World
 
     (w.dev / "extensions/vibe-chandra/src/view/layout.ts").chmod(0o755)
     assert w.run("check.sh").returncode != 0, "executable-bit drift must be caught"
+    w.ok("export.sh")
+    w.ok("check.sh")
+
+    with (w.dev / ".eslint-ignore").open("a") as fh:
+        fh.write("more/**\n")
+    assert w.run("check.sh").returncode != 0, "a root dotfile's patch is compared too"
 
 
 # --------------------------------------------------------------------------- apply
@@ -323,7 +334,9 @@ def test_check_passes_on_exported_state_and_fails_after_any_edit(exported: World
 def test_apply_reproduces_the_working_tree(exported: World):
     w = exported
     fresh = w.clone(w.tmp / "fresh")
-    w.ok("apply.sh", checkout=fresh)
+    applied = w.ok("apply.sh", checkout=fresh)
+    # Every patch exactly once, the dotfile ones included.
+    assert f"applied {len(EXPECTED_PATCHES)} patches," in applied.stdout
     ignored = (".git", "node_modules", "out")
     assert snapshot(fresh, ignored) == snapshot(w.dev, ignored)
     assert not (fresh / ".gitkeep").exists()
@@ -379,6 +392,18 @@ def test_apply_is_all_or_nothing_when_a_patch_conflicts(exported: World):
     assert proc.returncode != 0
     assert "src__vs__workbench__browser__layout.ts.patch" in proc.stderr
     assert "product.json.patch" not in proc.stderr.split("nothing was changed")[1]
+    assert snapshot(fresh) == pristine
+
+
+def test_apply_checks_dotfile_patches_before_applying_any(exported: World):
+    w = exported
+    fresh = w.clone(w.tmp / "fresh")
+    (fresh / ".eslint-ignore").write_text("**/elsewhere/**\n")
+    w.git(fresh, "commit", "-qam", "upstream drift")
+    pristine = snapshot(fresh)
+    proc = w.run("apply.sh", checkout=fresh)
+    assert proc.returncode != 0
+    assert ".eslint-ignore.patch" in proc.stderr.split("nothing was changed")[1]
     assert snapshot(fresh) == pristine
 
 
