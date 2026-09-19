@@ -1,7 +1,7 @@
 {
 	"displayName": "Agents",
 	"description": "Shows which coding agents in the integrated terminals of this window are still working and which are done or waiting for you.",
-	"capabilities.untrustedWorkspaces": "Profiles start programs: the profiles of a workspace that is not trusted are ignored.",
+	"capabilities.untrustedWorkspaces": "Profiles start programs: the profiles of a workspace that is not trusted are ignored, and so is everything that names a program of the ChatGPT Web panel.",
 	"container.title": "Agents",
 	"view.sessions.name": "Sessions",
 	"view.attention.name": "Attention",
@@ -29,5 +29,12 @@
 	"config.notify.attention": "Notify unless the terminal of the agent is the active terminal of the focused window.",
 	"config.notify.all": "Always notify.",
 	"config.chatgptWeb.enabled": "Offers **ChatGPT Web (via Codex)** in the **Agents** view of local windows: an agent that runs `codex -m chatgpt-web/<model>`, and a row that tells whether the launcher of [codex-chatgpt-web](https://github.com/miuuyy/codex-chatgpt-web), Codex Web GPT, is ready. It is unofficial browser automation of your own ChatGPT account: the terms and the message allowance of ChatGPT apply. Setting it up is done in the launcher, and its Install models routes **all** Codex traffic of this machine through the launcher.",
-	"config.chatgptWeb.codexConfigPath": "The config file of Codex, of which only the top-level `openai_base_url` is read, to find the port of the launcher. The default follows the environment variable `CODEX_HOME`, as Codex does."
+	"config.chatgptWeb.codexConfigPath": "The config file of Codex, of which only the top-level `openai_base_url` is read, to find the port of the launcher. The default follows the environment variable `CODEX_HOME`, as Codex does.",
+	"config.chatgptWeb.runtimePath": "The command of the runtime of the Codex Web GPT launcher (`codex-chatgpt-web`). Empty: the newest one the launcher installed below `~/.codex-chatgpt-web/versions` (only the names of that directory are read), then `PATH`. When it is set, nothing else is looked for. It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.launcherBundleId": "The bundle id of the launcher app, which `open` and the quit event are addressed to. It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.launcherAppPath": "The app of the launcher. Empty: `/Applications/Codex Web GPT.app` or the same in `~/Applications`. Only whether it exists is asked. It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.openCommand": "The program that starts the launcher hidden and shows its window (macOS `open`). It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.osascriptCommand": "The program that sends the launcher the quit event (macOS `osascript`). The launcher is never killed. It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.pgrepCommand": "The program that tells whether the launcher runs (`pgrep`). It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one.",
+	"config.chatgptWeb.codexCommand": "The command of Codex, of which only `codex debug models` is ever run by the ChatGPT Web panel: no prompt is sent. It is a machine setting, and it is also the seam a test profile uses to name a stand-in, so that a window under test never reaches the real one."
 }

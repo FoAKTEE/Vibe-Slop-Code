@@ -11,6 +11,11 @@ export const CHATGPT_WEB_PROFILE_LABEL = 'ChatGPT Web (via Codex)';
 export const CHATGPT_WEB_PROJECT_URL = 'https://github.com/miuuyy/codex-chatgpt-web';
 export const LAUNCHER_BUNDLE_ID = 'dev.codexwebgpt.launcher';
 export const LAUNCHER_APP_NAME = 'Codex Web GPT';
+
+/** Where macOS has the app of the launcher. Only whether one of them exists is asked. */
+export function launcherAppPaths(homedir: string): string[] {
+	return [`/Applications/${LAUNCHER_APP_NAME}.app`, `${homedir}/Applications/${LAUNCHER_APP_NAME}.app`];
+}
 export const DEFAULT_CODEX_CONFIG_PATH = '~/.codex/config.toml';
 export const DEFAULT_MODEL_SLUG = 'chatgpt-web/high';
 export const HEALTH_TIMEOUT_MS = 1500;

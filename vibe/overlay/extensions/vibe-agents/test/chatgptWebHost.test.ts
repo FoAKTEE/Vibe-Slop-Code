@@ -6,52 +6,19 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
-import * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { AddressInfo } from 'node:net';
 import { ChatGptWebBridge, nodeSystem, probeHealth, type BridgeSystem, type BridgeUi, type ModelPickItem } from '../src/host/chatgptWeb.ts';
 import { COMMANDS } from '../src/model/chatgptWeb.ts';
 import { ProfileRegistry, commandLineOf } from '../src/model/profiles.ts';
+import { deadPort, startFakeDaemon, type FakeDaemon } from './fakes/fake-daemon.ts';
 
 const HEALTH = { status: 'ok', service: 'codex-chatgpt-web', version: '5.0.8', mode: 'browser-only', pid: 4242, port: 0, uptime: 12, accepting_turns: true, active_http_turns: 0, active_browser_turns: 0 };
 
-interface FakeDaemon {
-	port: number;
-	requests: string[];
-	body: unknown;
-	/** Milliseconds before it answers. */
-	delay: number;
-}
-
 async function fakeDaemon(t: TestContext, body: unknown = HEALTH): Promise<FakeDaemon> {
-	const daemon: FakeDaemon = { port: 0, requests: [], body, delay: 0 };
-	const server = http.createServer((request, response) => {
-		daemon.requests.push(`${request.method} ${request.url}`);
-		setTimeout(() => {
-			if (request.url !== '/healthz') {
-				response.writeHead(404).end();
-				return;
-			}
-			response.writeHead(200, { 'content-type': 'application/json' }).end(typeof daemon.body === 'string' ? daemon.body : JSON.stringify(daemon.body));
-		}, daemon.delay);
-	});
-	await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-	daemon.port = (server.address() as AddressInfo).port;
-	t.after(() => new Promise(resolve => {
-		server.closeAllConnections();
-		server.close(resolve);
-	}));
+	const daemon = await startFakeDaemon({ body });
+	t.after(() => daemon.close());
 	return daemon;
-}
-
-/** A port on which nothing listens: one that was just given back. */
-async function deadPort(): Promise<number> {
-	const server = http.createServer();
-	await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-	const port = (server.address() as AddressInfo).port;
-	await new Promise(resolve => server.close(resolve));
-	return port;
 }
 
 interface Harness {

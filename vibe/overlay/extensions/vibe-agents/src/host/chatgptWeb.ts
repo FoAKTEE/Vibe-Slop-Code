@@ -12,7 +12,7 @@ import * as http from 'node:http';
 import * as os from 'node:os';
 import {
 	CHATGPT_WEB_PROFILE_ID, CHATGPT_WEB_PROJECT_URL, HEALTH_TIMEOUT_MS, LAUNCHER_APP_NAME, LAUNCHER_BUNDLE_ID, PROBE_INTERVAL_MS, ProbeSchedule, actionOf, chatGptWebLaunchProfile,
-	chatGptWebProfile, isReadyState, isTerminalSlug, parseHealth, parseLauncherRoute, presentBridge, resolveCodexConfigPath, rowOfBridge, slugOfCommandLine, terminalModels,
+	chatGptWebProfile, isReadyState, isTerminalSlug, launcherAppPaths, parseHealth, parseLauncherRoute, presentBridge, resolveCodexConfigPath, rowOfBridge, slugOfCommandLine, terminalModels,
 	type BridgeAction, type BridgeFacts, type BridgeHealth, type BridgePresentation, type IntervalTimers, type ProbeFailure,
 } from '../model/chatgptWeb.ts';
 import type { AgentProfile, LaunchRequest, ProfileProvider, StatusRow, StatusRowProvider } from '../model/profiles.ts';
@@ -74,11 +74,11 @@ export function nodeSystem(): BridgeSystem {
 /** The most that is read of an answer: the one of the daemon is a few hundred bytes. */
 const MAX_HEALTH_BYTES = 64 * 1024;
 
-/** One `GET /healthz` on loopback. One deadline bounds connecting, the headers and the body. */
-export function probeHealth(port: number, timeoutMs: number): Promise<{ health: BridgeHealth } | { error: ProbeFailure }> {
+/** One `GET /healthz` on loopback: its body, as text. One deadline bounds connecting, the headers and the body. */
+export function fetchHealthBody(port: number, timeoutMs: number): Promise<{ body: string } | { error: ProbeFailure }> {
 	return new Promise(resolve => {
 		let settled = false;
-		const settle = (outcome: { health: BridgeHealth } | { error: ProbeFailure }) => {
+		const settle = (outcome: { body: string } | { error: ProbeFailure }) => {
 			if (!settled) {
 				settled = true;
 				clearTimeout(deadline);
@@ -99,14 +99,21 @@ export function probeHealth(port: number, timeoutMs: number): Promise<{ health: 
 				}
 			});
 			response.on('error', () => settle({ error: 'unreachable' }));
-			response.on('end', () => {
-				const health = response.statusCode === 200 ? parseHealth(Buffer.concat(chunks).toString('utf8')) : undefined;
-				settle(health ? { health } : { error: 'not-the-daemon' });
-			});
+			response.on('end', () => settle(response.statusCode === 200 ? { body: Buffer.concat(chunks).toString('utf8') } : { error: 'not-the-daemon' }));
 		});
 		const deadline = setTimeout(() => settle({ error: 'timeout' }), timeoutMs);
 		request.on('error', () => settle({ error: 'unreachable' }));
 	});
+}
+
+/** The same, as what the status row knows of the daemon. */
+export async function probeHealth(port: number, timeoutMs: number): Promise<{ health: BridgeHealth } | { error: ProbeFailure }> {
+	const answer = await fetchHealthBody(port, timeoutMs);
+	if ('error' in answer) {
+		return answer;
+	}
+	const health = parseHealth(answer.body);
+	return health ? { health } : { error: 'not-the-daemon' };
 }
 
 export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
@@ -211,7 +218,7 @@ export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
 
 	private async facts(): Promise<BridgeFacts> {
 		const appInstalled = this.system.platform === 'darwin'
-			? (await Promise.all([`/Applications/${LAUNCHER_APP_NAME}.app`, `${this.system.homedir}/Applications/${LAUNCHER_APP_NAME}.app`].map(path => this.system.exists(path)))).some(Boolean)
+			? (await Promise.all(launcherAppPaths(this.system.homedir).map(path => this.system.exists(path)))).some(Boolean)
 			: undefined;
 
 		// The text of the config lives for this one expression: only the route is kept of it

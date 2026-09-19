@@ -30,7 +30,15 @@
       "description": "%capabilities.untrustedWorkspaces%",
       "restrictedConfigurations": [
         "vibeAgents.profiles",
-        "vibeAgents.chatgptWeb.enabled"
+        "vibeAgents.chatgptWeb.enabled",
+        "vibeAgents.chatgptWeb.codexConfigPath",
+        "vibeAgents.chatgptWeb.runtimePath",
+        "vibeAgents.chatgptWeb.launcherBundleId",
+        "vibeAgents.chatgptWeb.launcherAppPath",
+        "vibeAgents.chatgptWeb.openCommand",
+        "vibeAgents.chatgptWeb.osascriptCommand",
+        "vibeAgents.chatgptWeb.pgrepCommand",
+        "vibeAgents.chatgptWeb.codexCommand"
       ]
     }
   },
@@ -221,6 +229,48 @@
           "default": "~/.codex/config.toml",
           "scope": "machine",
           "markdownDescription": "%config.chatgptWeb.codexConfigPath%"
+        },
+        "vibeAgents.chatgptWeb.runtimePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.runtimePath%"
+        },
+        "vibeAgents.chatgptWeb.launcherBundleId": {
+          "type": "string",
+          "default": "dev.codexwebgpt.launcher",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.launcherBundleId%"
+        },
+        "vibeAgents.chatgptWeb.launcherAppPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.launcherAppPath%"
+        },
+        "vibeAgents.chatgptWeb.openCommand": {
+          "type": "string",
+          "default": "/usr/bin/open",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.openCommand%"
+        },
+        "vibeAgents.chatgptWeb.osascriptCommand": {
+          "type": "string",
+          "default": "/usr/bin/osascript",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.osascriptCommand%"
+        },
+        "vibeAgents.chatgptWeb.pgrepCommand": {
+          "type": "string",
+          "default": "/usr/bin/pgrep",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.pgrepCommand%"
+        },
+        "vibeAgents.chatgptWeb.codexCommand": {
+          "type": "string",
+          "default": "codex",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.codexCommand%"
         }
       }
     }
