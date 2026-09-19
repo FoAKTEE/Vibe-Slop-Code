@@ -2,7 +2,7 @@
 
 Every behavioural test runs against a synthetic upstream repo under ``tmp_path``
 with all script paths redirected through the ``VIBE_*`` environment overrides; the
-real checkout (``vibe/vscode``) is never read or written.
+real checkout (``vscode/``) is never read or written.
 """
 from __future__ import annotations
 
@@ -16,9 +16,8 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-VIBE = REPO / "vibe"
-SCRIPTS = VIBE / "scripts"
-PIN = VIBE / "upstream.json"
+SCRIPTS = REPO / "scripts"
+PIN = REPO / "upstream.json"
 
 RUNNABLE = ["bootstrap.sh", "apply.sh", "export.sh", "check.sh", "build.sh", "run.sh", "test-core.sh"]
 ALL_SCRIPTS = ["env.sh", *RUNNABLE]
@@ -179,7 +178,7 @@ def test_env_reads_pin_like_a_json_parser(world: World):
     del env["VIBE_CHECKOUT"], env["VIBE_PATCHES"], env["VIBE_OVERLAY"], env["VIBE_TOOLCHAIN"]
     script = f'. "{SCRIPTS / "env.sh"}"; for k in repo tag commit node; do vibe_pin "$k"; done; echo "$VIBE_ROOT"'
     proc = subprocess.run([BASH, "-euc", script], env=env, capture_output=True, text=True, check=True)
-    assert proc.stdout.split("\n")[:5] == [pin["repo"], pin["tag"], pin["commit"], pin["node"], str(VIBE)]
+    assert proc.stdout.split("\n")[:5] == [pin["repo"], pin["tag"], pin["commit"], pin["node"], str(REPO)]
 
 
 @pytest.mark.parametrize("name", ALL_SCRIPTS)
@@ -201,9 +200,9 @@ def test_runnable_script_is_strict(name: str):
 
 
 def test_tracked_dirs_and_readme_exist():
-    assert (VIBE / "patches" / ".gitkeep").is_file()
-    assert (VIBE / "overlay" / ".gitkeep").is_file()
-    readme = (VIBE / "README.md").read_text()
+    assert (REPO / "patches" / ".gitkeep").is_file()
+    assert (REPO / "overlay" / ".gitkeep").is_file()
+    readme = (REPO / "README.md").read_text()
     for needle in ("bootstrap.sh", "export.sh", "check.sh", "upstream.json", "DESIGN.md"):
         assert needle in readme
 
@@ -213,13 +212,15 @@ def test_gitignore_hides_checkout_but_never_overlay_content():
     def ignored(path: str) -> bool:
         return subprocess.run(["git", "-C", str(REPO), "check-ignore", "-q", "--no-index", path]).returncode == 0
 
-    assert ignored("vibe/vscode/package.json")
-    assert ignored("vibe/.toolchain/node/bin/node")
-    assert ignored("vibe/.build/x")
-    assert not ignored("vibe/patches/product.json.patch")
-    # Repo-wide patterns (*.log, *.out, progress/, ...) must not swallow overlay files.
-    assert not ignored("vibe/overlay/extensions/vibe-chandra/src/progress/trace.log")
-    assert not ignored("vibe/overlay/resources/a.pdf")
+    assert ignored("vscode/package.json")
+    assert ignored(".toolchain/node/bin/node")
+    assert ignored(".build/x")
+    assert ignored("VSCode-darwin-arm64/x")
+    assert not ignored("patches/product.json.patch")
+    assert not ignored("overlay/resources/a.pdf")
+    # The rules are anchored at the root: a folder of the same name inside overlay/ is content.
+    for name in ("vscode", ".toolchain", ".build", "VSCode-darwin-arm64"):
+        assert not ignored(f"overlay/extensions/vibe-chandra/{name}/x.ts")
 
 
 # --------------------------------------------------------------------------- export

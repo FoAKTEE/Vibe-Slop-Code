@@ -1,10 +1,24 @@
 # Vibe Slop Code
 
-`vibe` is a patch-level fork of VS Code (Code - OSS) that adds a workspace bar
-(hosts × workspaces in one frame) and a built-in Chandra workflow-graph view. The
-design, its limits and the node DAG are in [DESIGN.md](DESIGN.md).
+Vibe Slop Code (`vibe`) is a patch-level fork of VS Code (Code - OSS, pinned at
+1.129.1) that adds:
 
-Upstream is never vendored. This directory tracks only:
+- a **workspace bar**: every host and workspace in one frame, grouped by host. Switching
+  swaps windows in place, and hidden ones keep their terminals, agents and remote
+  connections running;
+- the **Chandra workflow graph**, built in: the directed hypergraph of a Chandra
+  project, folded live from its append-only ledgers under `results/ledgers/`;
+- **SSH hosts** straight from `~/.ssh/config`, served by `vibe-server`, which is built
+  from the same checkout and uploaded over the connection;
+- an **Agents** view: which agent session is working, which is waiting for you, which
+  has finished or failed, and a per-tab badge in the workspace bar that says where;
+- a **ChatGPT Web** panel that operates the Codex Web GPT launcher of
+  [codex-chatgpt-web](https://github.com/miuuyy/codex-chatgpt-web): setup, models,
+  bridge, engine, doctor.
+
+The design, its limits and the node DAG are in [DESIGN.md](DESIGN.md).
+
+Upstream is never vendored. This repository tracks:
 
 | Path | Content |
 |---|---|
@@ -12,25 +26,45 @@ Upstream is never vendored. This directory tracks only:
 | `patches/` | edits to upstream files, one patch per upstream path (`/` → `__`) |
 | `overlay/` | brand-new files, mirrored at their checkout path |
 | `scripts/` | the tooling below |
+| `bin/vibe` | the `vibe` command |
+| `branding/` | the icon sources |
+| `tests/` | tests of the tooling (`python3 -m pytest`) |
 
 `vscode/` (the checkout), `.toolchain/` (the pinned Node) and `.build/` are gitignored.
 
+## Requirements
+
+Built and tested on macOS arm64. Beyond git, curl, python3 and what upstream's `npm ci`
+needs to compile native modules (Xcode command-line tools), nothing is installed by
+hand: `bootstrap.sh` fetches the pinned Node itself. Docker is needed only for
+`build-server.sh`; `make-icon.sh` needs `rsvg-convert`, `magick` and `iconutil`.
+
 ## Quickstart
 
-    vibe/scripts/bootstrap.sh     # pinned Node + shallow clone of the pin + apply + npm ci
-    vibe/scripts/build.sh         # npm run compile
-    vibe/scripts/run.sh [args]    # launch the dev build (scripts/code.sh)
+From a fresh clone:
+
+    scripts/bootstrap.sh     # pinned Node + shallow clone of the pin + apply + npm ci
+    scripts/build.sh         # npm run compile
+    scripts/run.sh [args]    # launch the dev build (vscode/scripts/code.sh)
 
 `bootstrap.sh` is idempotent and never overwrites work in an existing checkout;
 `--no-install` skips `npm ci`. Always go through these scripts (or `. scripts/env.sh`)
 so the pinned Node is used rather than the system one.
+
+For an app and a `vibe` command on your PATH:
+
+    scripts/package.sh           # the app, in VSCode-darwin-arm64/
+    scripts/verify-package.sh    # read-only checks on it
+    scripts/install-cli.sh       # symlink `vibe` into a bin dir
 
 ## Development loop
 
 1. Edit inside `vscode/` as if it were a normal VS Code clone. Do not `git add` or
    commit there: the checkout's index must stay at the pinned commit.
 2. `scripts/test-core.sh <test-file>... | <glob>` runs core unit tests (compile first,
-   or keep `npm run watch` running: tests load from `out/`).
+   or keep `npm run watch` running: tests load from `out/`). `npm test` in
+   `vscode/extensions/vibe-*` runs an extension's tests (pinned Node on PATH:
+   `. scripts/env.sh`); `python3 -m pytest` runs `tests/`.
 3. `scripts/export.sh` regenerates `patches/` + `overlay/` from the checkout. It
    rebuilds both from scratch, so reverted edits and deleted files drop out.
 4. `scripts/check.sh` exits 0 iff the tracked state equals the checkout. Run it
@@ -47,13 +81,13 @@ commit check. The roundtrip is covered by `tests/test_vibe_scaffold.py`.
 
 ## Package and install
 
-    vibe/scripts/package.sh [--arch arm64|x64] [--min]   # npm run gulp vscode-<platform>-<arch>
-    vibe/scripts/verify-package.sh                       # read-only checks on the result
-    vibe/scripts/install-cli.sh                          # symlink `vibe` into a bin dir
+    scripts/package.sh [--arch arm64|x64] [--min]   # npm run gulp vscode-<platform>-<arch>
+    scripts/verify-package.sh                       # read-only checks on the result
+    scripts/install-cli.sh                          # symlink `vibe` into a bin dir
 
 `package.sh` maps the host to upstream's gulp task — `--print-task` prints the task and
 builds nothing — and takes minutes, not seconds. Upstream hard-codes the output folder
-next to the checkout, so the app lands in `vibe/VSCode-<platform>-<arch>/` (e.g.
+next to the checkout, so the app lands in `VSCode-<platform>-<arch>/` (e.g.
 `VSCode-darwin-arm64/Vibe Slop Code.app`, ~1.4 GB, gitignored), with the built-in
 `vibe-chandra` extension inside and the bundled CLI at `Contents/Resources/app/bin/code`
 — the name upstream fixes on darwin.
@@ -70,12 +104,11 @@ sit side by side, the newest bundle wins (`--vibe-which` lists the rest as `cand
 `package.sh` names them, and neither deletes anything). A bundle under the app's previous
 long name is listed last, after every bundle under the current one: renaming the app
 renames nothing on disk, so the last package keeps working until the next one. To undo:
-`install-cli.sh --uninstall` removes the symlink, and `rm -rf vibe/VSCode-*` removes
-the app.
+`install-cli.sh --uninstall` removes the symlink, and `rm -rf VSCode-*` removes the app.
 
 ## Icon
 
-    vibe/scripts/make-icon.sh [--check] [--out DIR]   # needs rsvg-convert, magick, iconutil
+    scripts/make-icon.sh [--check] [--out DIR]   # needs rsvg-convert, magick, iconutil
 
 The icon is the product's idea drawn small: a directed hypergraph of five rectangular
 nodes, two of which meet in one junction from which one arrow continues. The sources are
@@ -92,8 +125,8 @@ and the file formats are covered by `tests/test_vibe_icon.py`.
 
 ## Remote server
 
-    vibe/scripts/build-server.sh [--arch x64|arm64] [--package-only]   # needs Docker running
-    vibe/scripts/verify-server.sh <tarball> [--host <ssh-host>]
+    scripts/build-server.sh [--arch x64|arm64] [--package-only]   # needs Docker running
+    scripts/verify-server.sh <tarball> [--host <ssh-host>]
 
 A remote (SSH) window talks to a server on the host whose `commit` equals the client's.
 Microsoft's server build is licensed for their products only, and nobody publishes one
@@ -170,3 +203,12 @@ key/agent authentication has been used — password/2FA prompts and `ProxyJump` 
    delete the `.rej` files afterwards, or they are exported as overlay files.
 5. `scripts/export.sh`, `scripts/check.sh`, build and test, then commit the pin
    together with the refreshed patches.
+
+## Licences
+
+This repository is MIT-licensed ([LICENSE](LICENSE)). VS Code (Code - OSS) is MIT-licensed
+upstream, and the patches in `patches/` are derived from it.
+`overlay/extensions/vibe-remote-ssh` is a copy of open-remote-ssh and keeps its own MIT
+licence (`LICENSE.txt`) and a `PROVENANCE.md` that lists every change. codex-chatgpt-web
+is operated, not included: `overlay/extensions/vibe-agents/THIRD_PARTY.md` says what the
+Agents extension runs of it and what it follows.

@@ -407,7 +407,7 @@ export function planServerInstall(input: ServerInstallPlanInput): ServerInstallP
 
 	const commit = input.productCommit ?? tarball?.commit;
 	if (!commit) {
-		return { kind: 'error', message: `No build of ${input.serverApplicationName} for ${platformLabel} was found, and this build from sources has no commit of its own to look for on the host. Build the server with vibe/scripts/build-server.sh, or point the setting remote.SSH.vibeServerTarball to a build. Searched: ${searched}` };
+		return { kind: 'error', message: `No build of ${input.serverApplicationName} for ${platformLabel} was found, and this build from sources has no commit of its own to look for on the host. Build the server with scripts/build-server.sh, or point the setting remote.SSH.vibeServerTarball to a build. Searched: ${searched}` };
 	}
 
 	if (input.installedCommits.includes(commit)) {
@@ -426,7 +426,7 @@ export function planServerInstall(input: ServerInstallPlanInput): ServerInstallP
 		return { kind: 'upstream', commit };
 	}
 
-	return { kind: 'error', message: `No build of ${input.serverApplicationName} for ${platformLabel} (commit ${commit}) was found to upload to the host. Build the server with vibe/scripts/build-server.sh, or point the setting remote.SSH.vibeServerTarball to a build. Searched: ${searched}` };
+	return { kind: 'error', message: `No build of ${input.serverApplicationName} for ${platformLabel} (commit ${commit}) was found to upload to the host. Build the server with scripts/build-server.sh, or point the setting remote.SSH.vibeServerTarball to a build. Searched: ${searched}` };
 }
 
 //#endregion

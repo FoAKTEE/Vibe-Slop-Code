@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-/** One raw ledger row exactly as appended; the Python ledger modules own the schema. */
+/** One raw ledger row exactly as appended; Chandra's Python ledger modules own the schema. */
 export type LedgerRow = Record<string, unknown>;
 
 /** Rows of the four ledgers, each in append order. Rows of several papers may be mixed. */

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-// The fold is checked against the Python sources of truth. `fixtures/paper_self` and `fixtures/paper_vibe` are
-// verbatim snapshots of this repository's ledgers, `fixtures/paper_synth` is hand-made to cover what they lack
-// (supersedes, retired and revived nodes, amended pointers, ghosts, cycles, a torn tail). The `*.expected.json`
-// files next to them are the unedited output of, run against a repo root that holds only the snapshot:
+// The fold is checked against the Python sources of truth in the Chandra repository. `fixtures/paper_self` and
+// `fixtures/paper_vibe` are verbatim snapshots of its ledgers, `fixtures/paper_synth` is hand-made to cover what they
+// lack (supersedes, retired and revived nodes, amended pointers, ghosts, cycles, a torn tail). The `*.expected.json`
+// files next to them are the unedited output of its tools, run against a repo root that holds only the snapshot:
 //   python3 _common/knowledge_database.py query --repo-root <root> --paper <P>          -> query.expected.json
 //   python3 _common/visualization/dag_mermaid.py progress --repo-root <root> --papers <P> -> progress.expected.json
-// The last test repeats the comparison live whenever the Python tools and the real ledgers are reachable.
+// The last test repeats the comparison live against the Chandra checkout that CHANDRA_ROOT names.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { parseJsonl } from '../src/model/jsonl.ts';
 import { foldLedgers, latestPerNode } from '../src/model/fold.ts';
 import type { GraphNode, Hypergraph, LedgerRow } from '../src/model/types.ts';
-import { findChandraRoot, fixtureInput, fixturesDir, readJson, readText } from './helpers.ts';
+import { chandraRoot, fixtureInput, fixturesDir, readJson, readText } from './helpers.ts';
 
 interface ProgressRow { paper: string; node_id: string; status: string | null; n_knowledge: number; n_trials: number; pass: number; fail: number }
 
@@ -255,12 +255,14 @@ test('empty input folds to an empty graph', () => {
 	assert.equal(g.cycles.cyclic, false);
 });
 
-test('live ledgers: fold agrees with the Python query run right now (skipped outside the Chandra repo)', t => {
-	const root = findChandraRoot();
+test('live ledgers: fold agrees with the Python query run right now (skipped unless CHANDRA_ROOT is set)', t => {
+	const root = chandraRoot();
 	if (!root) {
-		t.skip('Chandra repository not found above this extension');
+		t.skip('CHANDRA_ROOT is not set');
 		return;
 	}
+	assert.ok(existsSync(join(root, '_common', 'knowledge_database.py')) && existsSync(join(root, 'results', 'ledgers', 'knowledge')),
+		`CHANDRA_ROOT=${root} is not a Chandra checkout: it needs _common/knowledge_database.py and results/ledgers/knowledge/`);
 	try {
 		execFileSync('python3', ['--version'], { stdio: 'ignore' });
 	} catch {

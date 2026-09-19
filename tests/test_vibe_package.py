@@ -25,8 +25,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-VIBE = REPO / "vibe"
-SCRIPTS = VIBE / "scripts"
+SCRIPTS = REPO / "scripts"
 PACKAGE = SCRIPTS / "package.sh"
 VERIFY = SCRIPTS / "verify-package.sh"
 
@@ -100,7 +99,7 @@ def test_script_exists_executable_and_parses(script: Path) -> None:
 
 
 def test_readme_documents_packaging() -> None:
-    readme = (VIBE / "README.md").read_text(encoding="utf-8")
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
     for needle in ("package.sh", "verify-package.sh", "install-cli.sh", "VSCode-darwin", "newest"):
         assert needle in readme, f"README does not mention {needle}"
 
@@ -417,10 +416,10 @@ def test_verify_takes_no_arguments(bundle: Bundle) -> None:
 
 # --------------------------------------------------------------------------- the real bundle
 
-BUNDLES = VIBE / f"VSCode-darwin-{ARCH}"
+BUNDLES = REPO / f"VSCode-darwin-{ARCH}"
 REAL_APP = next((BUNDLES / name for name in (APP_NAME, LEGACY_APP_NAME)
                  if (BUNDLES / name).is_dir()), None)
-CHECKOUT_PRODUCT = VIBE / "vscode" / "product.json"
+CHECKOUT_PRODUCT = REPO / "vscode" / "product.json"
 
 
 def bundle_predates_product_json() -> bool:
@@ -434,7 +433,7 @@ def bundle_predates_product_json() -> bool:
 
 
 @pytest.mark.skipif(REAL_APP is None,
-                    reason="no packaged app (vibe/VSCode-* is gitignored; run scripts/package.sh)")
+                    reason="no packaged app (VSCode-* is gitignored; run scripts/package.sh)")
 def test_verify_the_real_packaged_app() -> None:
     if bundle_predates_product_json():
         pytest.skip(f"{REAL_APP.name} was packaged before the current "
@@ -442,6 +441,6 @@ def test_verify_the_real_packaged_app() -> None:
     proc = run(VERIFY)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "ok: identifier dev.chandra.vibe" in proc.stdout
-    version = json.loads((VIBE / "vscode" / "package.json").read_text(encoding="utf-8"))["version"]
-    commit = json.loads((VIBE / "upstream.json").read_text(encoding="utf-8"))["commit"]
+    version = json.loads((REPO / "vscode" / "package.json").read_text(encoding="utf-8"))["version"]
+    commit = json.loads((REPO / "upstream.json").read_text(encoding="utf-8"))["commit"]
     assert version in proc.stdout and commit in proc.stdout

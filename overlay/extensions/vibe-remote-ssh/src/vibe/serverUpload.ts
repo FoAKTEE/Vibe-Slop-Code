@@ -189,7 +189,7 @@ async function getSha256(tarball: string, logger: ServerUploadLog): Promise<stri
 	}
 
 	if (expected && expected !== actual) {
-		throw new Error(`${tarball} is damaged: its sha256 is ${actual}, ${tarball}.sha256 says ${expected}. Build the server again with vibe/scripts/build-server.sh.`);
+		throw new Error(`${tarball} is damaged: its sha256 is ${actual}, ${tarball}.sha256 says ${expected}. Build the server again with scripts/build-server.sh.`);
 	}
 
 	return actual;

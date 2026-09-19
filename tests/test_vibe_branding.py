@@ -2,7 +2,7 @@
 
 Three things are checked here, all of them cheap and hermetic:
 
-  * `vibe/bin/vibe` and `vibe/scripts/install-cli.sh` parse (`bash -n`) and
+  * `bin/vibe` and `scripts/install-cli.sh` parse (`bash -n`) and
     behave: install / re-install / refuse / --force / --uninstall against a
     throwaway `VIBE_BIN_DIR`, never a real system directory.
   * `vibe --vibe-which` resolves its own location THROUGH a symlink (macOS has
@@ -12,7 +12,7 @@ Three things are checked here, all of them cheap and hermetic:
     a fake `.app` bundle. The dev cases run against a throwaway root: next to
     the real checkout a packaged bundle may exist, and it legitimately wins over
     the dev build.
-  * `vibe/vscode/product.json` — only when the gitignored upstream checkout is
+  * `vscode/product.json` — only when the gitignored upstream checkout is
     present — carries the Vibe identity keys and the Open VSX gallery.
 """
 from __future__ import annotations
@@ -26,10 +26,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-VIBE = REPO_ROOT / "vibe"
-BIN_VIBE = VIBE / "bin" / "vibe"
-INSTALL_CLI = VIBE / "scripts" / "install-cli.sh"
-PRODUCT_JSON = VIBE / "vscode" / "product.json"
+BIN_VIBE = REPO_ROOT / "bin" / "vibe"
+INSTALL_CLI = REPO_ROOT / "scripts" / "install-cli.sh"
+PRODUCT_JSON = REPO_ROOT / "vscode" / "product.json"
 
 APP_NAME = "Vibe Slop Code.app"
 # The bundle name before the rename. A rename touches product.json, not the 1.4 GB tree
@@ -349,7 +348,7 @@ def test_installed_symlink_resolves_to_our_root(tmp_path: Path) -> None:
     assert install(bin_dir).returncode == 0
     fields = which_fields(run([str(bin_dir / "vibe"), "--vibe-which"], cwd=tmp_path))
     home = fields.get("checkout") or fields.get("app")
-    assert home and home.startswith(f"{VIBE}{os.sep}"), fields
+    assert home and home.startswith(f"{REPO_ROOT}{os.sep}"), fields
 
 
 # --------------------------------------------------------------------------- #
@@ -375,7 +374,7 @@ IDENTITY = {
 @pytest.fixture(scope="module")
 def product() -> dict:
     if not PRODUCT_JSON.is_file():
-        pytest.skip("upstream checkout absent (vibe/vscode is gitignored)")
+        pytest.skip("upstream checkout absent (vscode/ is gitignored)")
     return json.loads(PRODUCT_JSON.read_text(encoding="utf-8"))
 
 
@@ -414,7 +413,7 @@ def test_product_licence_untouched(product: dict) -> None:
 
 def test_product_json_uses_tabs() -> None:
     if not PRODUCT_JSON.is_file():
-        pytest.skip("upstream checkout absent (vibe/vscode is gitignored)")
+        pytest.skip("upstream checkout absent (vscode/ is gitignored)")
     for line in PRODUCT_JSON.read_text(encoding="utf-8").splitlines():
         if line.startswith(" "):
             raise AssertionError(f"space-indented line in product.json: {line!r}")

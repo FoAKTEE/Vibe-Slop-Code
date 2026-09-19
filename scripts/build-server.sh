@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the remote server (vibe-server) for linux-<arch> and pack it as
-# vibe/.build/server/vibe-server-linux-<arch>-<commit>.tar.gz (+ .sha256), one top-level
+# .build/server/vibe-server-linux-<arch>-<commit>.tar.gz (+ .sha256), one top-level
 # directory, which is what the SSH resolver unpacks into ~/.vibe-server/bin/<commit>/.
 # The JS comes from upstream's esbuild bundler (build/next, target server), the way the
 # desktop package is built at this pin, and upstream's gulp task vscode-reh-linux-<arch>-ci

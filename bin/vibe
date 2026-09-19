@@ -5,9 +5,9 @@
 # Backend resolution, first hit wins:
 #   1. $VIBE_APP                                 (explicit override, must exist)
 #   2. /Applications/Vibe Slop Code.app          (installed)
-#   3. packaged build: vibe/.build/… or the checkout's sibling VSCode-darwin-*
+#   3. packaged build: .build/… or the checkout's sibling VSCode-darwin-*
 #      — the NEWEST of them, never the one the glob happens to name first
-#   4. dev build: vibe/vscode/scripts/code.sh    (with the pinned toolchain)
+#   4. dev build: vscode/scripts/code.sh         (with the pinned toolchain)
 #
 # Steps 2 and 3 also look for the name the app carried before the rename: renaming
 # the app renames nothing on disk, so the bundle a previous package.sh wrote keeps

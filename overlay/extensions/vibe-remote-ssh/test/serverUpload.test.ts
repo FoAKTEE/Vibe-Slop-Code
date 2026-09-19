@@ -107,7 +107,7 @@ test('a build from sources has no commit: the build tells it, and the second con
 }));
 
 test('absent without a build: an error that tells what to do, the host is not touched', () => withHost(async host => {
-	await assert.rejects(install(host, { tarballSetting: join(host.builds, 'nothing-here') }), /vibe\/scripts\/build-server\.sh.*remote\.SSH\.vibeServerTarball/s);
+	await assert.rejects(install(host, { tarballSetting: join(host.builds, 'nothing-here') }), /scripts\/build-server\.sh.*remote\.SSH\.vibeServerTarball/s);
 	assert.deepEqual([host.uploads, existsSync(host.dataDir)], [[], false]);
 }));
 

@@ -78,15 +78,15 @@ test('getTarballSearchPaths: a packaged application inside its build tree finds 
 	const paths = getTarballSearchPaths({
 		setting: '',
 		envDir: undefined,
-		appRoot: '/repo/vibe/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/app',
+		appRoot: '/repo/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/app',
 		homeDir: '/Users/me',
 		isDevBuild: false
 	});
 
 	assert.deepEqual(paths, [
-		'/repo/vibe/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/server',
+		'/repo/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/server',
 		'/Users/me/.vibe/servers',
-		'/repo/vibe/.build/server'
+		'/repo/.build/server'
 	]);
 });
 
@@ -94,13 +94,13 @@ test('getTarballSearchPaths: a build from sources looks into the build folder ne
 	assert.deepEqual(getTarballSearchPaths({
 		setting: undefined,
 		envDir: '',
-		appRoot: '/repo/vibe/vscode',
+		appRoot: '/repo/vscode',
 		homeDir: '/Users/me',
 		isDevBuild: true
 	}), [
-		'/repo/vibe/server',
+		'/repo/server',
 		'/Users/me/.vibe/servers',
-		'/repo/vibe/.build/server'
+		'/repo/.build/server'
 	]);
 });
 
@@ -229,7 +229,7 @@ test('planServerInstall: the error names platform, commit, the build script and 
 	const result = planServerInstall(plan({ uname: 'Linux aarch64', listings: [{ path: '/builds', files: [{ name: tarball('linux', 'x64', COMMIT), mtimeMs: 1 }] }, { path: '/home/.vibe/servers', files: [] }] }));
 
 	assert.equal(result.kind, 'error');
-	assert.match(result.kind === 'error' ? result.message : '', new RegExp(`linux-arm64.*${COMMIT}.*vibe/scripts/build-server\\.sh.*remote\\.SSH\\.vibeServerTarball.*/builds.*/home/\\.vibe/servers`, 's'));
+	assert.match(result.kind === 'error' ? result.message : '', new RegExp(`linux-arm64.*${COMMIT}.*scripts/build-server\\.sh.*remote\\.SSH\\.vibeServerTarball.*/builds.*/home/\\.vibe/servers`, 's'));
 });
 
 test('planServerInstall: a build from sources has no commit and takes the one of the build it finds', () => {

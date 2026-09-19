@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only checks on a packaged app ($VIBE_APP, else vibe/VSCode-darwin-<arch>/): bundle
+# Read-only checks on a packaged app ($VIBE_APP, else VSCode-darwin-<arch>/): bundle
 # identity, the rebranded product.json, the built-in vibe-chandra extension, and the
 # bundled CLI's --version against the checkout's version and the upstream pin. One `ok:`
 # line per check; the first failure says what was expected and exits non-zero.

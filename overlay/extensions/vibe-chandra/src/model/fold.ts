@@ -22,7 +22,7 @@ function strings(value: unknown): string[] {
 }
 
 /**
- * Latest active row per `node_id` in append order: the exact fold of `ledger_common.latest_per_node`.
+ * Latest active row per `node_id` in append order: the exact fold of Chandra's `ledger_common.latest_per_node`.
  * Legacy `amended` rows are ignored pointers, the last remaining row wins, and a node whose winning row is
  * `retired` disappears (a later active row revives it). Order is that of each node's first counted row.
  */

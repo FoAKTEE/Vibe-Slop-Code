@@ -1,6 +1,6 @@
 """App icon for Vibe Slop Code: a directed hypergraph of five rectangular nodes.
 
-The sources are hand-written SVGs under `vibe/branding/`; `vibe/scripts/make-icon.sh`
+The sources are hand-written SVGs under `branding/`; `scripts/make-icon.sh`
 renders them into the platform files at their upstream checkout paths. Checked here,
 with the standard library only (the platform files are parsed by hand):
 
@@ -29,10 +29,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-VIBE = REPO_ROOT / "vibe"
-BRANDING = VIBE / "branding"
-MAKE_ICON = VIBE / "scripts" / "make-icon.sh"
-CHECKOUT = VIBE / "vscode"
+BRANDING = REPO_ROOT / "branding"
+MAKE_ICON = REPO_ROOT / "scripts" / "make-icon.sh"
+CHECKOUT = REPO_ROOT / "vscode"
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 RENDER_TOOLS = ("rsvg-convert", "magick", "iconutil")

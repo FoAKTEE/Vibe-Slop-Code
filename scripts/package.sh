@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Package the checkout into a distributable app: maps the host (or --arch) to upstream's
 # gulp task `vscode-<platform>-<arch>[-min]` and runs it. Upstream hard-codes the output
-# folder next to the checkout, so the app lands in vibe/VSCode-<platform>-<arch>/ (a
+# folder next to the checkout, so the app lands in VSCode-<platform>-<arch>/ (a
 # gitignored 1.4 GB tree). --print-task prints the task and exits without building.
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"

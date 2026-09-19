@@ -3,12 +3,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Vibe Slop Code (upstream checkout, toolchain and build output are never tracked)
-vibe/vscode/
-vibe/.toolchain/
-vibe/.build/
-vibe/VSCode-*/
-vibe/vscode-reh-*/
-vibe/vscode-server-*/
-# Overlay files are tracked verbatim: no rule above (*.log, progress/, *-database/, ...) may hide one.
-!vibe/overlay/**
+# Upstream checkout, toolchain and build output are never tracked. Anchored, so that a
+# folder of the same name inside overlay/ stays tracked.
+/vscode/
+/.toolchain/
+/.build/
+/VSCode-*/
+/vscode-reh-*/
+/vscode-server-*/

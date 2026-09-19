@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { readFileSync, existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseJsonl } from '../src/model/jsonl.ts';
 import type { LedgerInput, LedgerRow } from '../src/model/types.ts';
 
@@ -34,18 +34,8 @@ export function fixtureInput(paper: string): LedgerInput {
 	};
 }
 
-/** Walks up from this file to the repository that owns the Python ledger tools, if any. */
-export function findChandraRoot(): string | undefined {
-	let dir = import.meta.dirname;
-	for (let i = 0; i < 12; i++) {
-		if (existsSync(join(dir, '_common', 'knowledge_database.py')) && existsSync(join(dir, 'results', 'ledgers'))) {
-			return dir;
-		}
-		const parent = dirname(dir);
-		if (parent === dir) {
-			break;
-		}
-		dir = parent;
-	}
-	return undefined;
+/** The Chandra checkout that `CHANDRA_ROOT` names (its Python ledger tools and its ledgers), if it is set. */
+export function chandraRoot(): string | undefined {
+	const root = process.env['CHANDRA_ROOT'];
+	return root ? resolve(root) : undefined;
 }

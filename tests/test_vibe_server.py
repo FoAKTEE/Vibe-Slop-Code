@@ -5,7 +5,7 @@ through ``--print-plan`` (the steps it *would* run, for both architectures) and 
 its refusals, with fake ``docker`` and ``npm`` first on PATH proving that no work was
 started. ``verify-server.sh`` is checked against fake tarballs under ``tmp_path`` - one
 good tree with tiny fake ELF headers plus a broken variant per check - and, when it
-exists, against the real tarball under ``vibe/.build/server/`` (local checks only; the
+exists, against the real tarball under ``.build/server/`` (local checks only; the
 ``--host`` checks need a real machine and are run by hand).
 """
 from __future__ import annotations
@@ -23,8 +23,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-VIBE = REPO / "vibe"
-SCRIPTS = VIBE / "scripts"
+SCRIPTS = REPO / "scripts"
 BUILD = SCRIPTS / "build-server.sh"
 VERIFY = SCRIPTS / "verify-server.sh"
 HELPERS = SCRIPTS / "server"
@@ -169,13 +168,13 @@ def test_helper_files_exist_and_are_ascii() -> None:
 
 
 def test_readme_documents_the_remote_server() -> None:
-    readme = (VIBE / "README.md").read_text(encoding="utf-8")
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
     for needle in ("## Remote server", "build-server.sh", "verify-server.sh", ".build/server", "--host"):
         assert needle in readme, f"README does not mention {needle}"
 
 
 def test_readme_documents_connecting_to_a_host() -> None:
-    readme = (VIBE / "README.md").read_text(encoding="utf-8")
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
     for needle in ("## Connect to an SSH host", "~/.ssh/config", "~/.vibe-server",
                    "workbench.action.workspaceBar.connectToSshHost", "~/.vscode-server", "linux-x64"):
         assert needle in readme, f"README does not mention {needle}"
@@ -613,10 +612,10 @@ def test_verify_refuses_a_tarball_it_cannot_name(server: Server) -> None:
 
 # --------------------------------------------------------------------------- the real tarball
 
-REAL = sorted((VIBE / ".build" / "server").glob("vibe-server-linux-*-*.tar.gz"))
+REAL = sorted((REPO / ".build" / "server").glob("vibe-server-linux-*-*.tar.gz"))
 
 
-@pytest.mark.skipif(not REAL, reason="no server tarball - run vibe/scripts/build-server.sh")
+@pytest.mark.skipif(not REAL, reason="no server tarball - run scripts/build-server.sh")
 @pytest.mark.parametrize("tarball", REAL, ids=[p.name for p in REAL])
 def test_verify_accepts_the_real_tarball(tarball: Path) -> None:
     proc = run(VERIFY, str(tarball))

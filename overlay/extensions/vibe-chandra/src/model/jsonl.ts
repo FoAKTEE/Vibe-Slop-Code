@@ -31,7 +31,7 @@ function parseObject(text: string): LedgerRow | 'invalid-json' | 'not-an-object'
 /**
  * Parses an append-only JSONL ledger that may be written while it is read.
  *
- * Mirrors `ledger_common._complete_lines`: a row is appended as `json + "\n"` in one write, so only the
+ * Mirrors Chandra's `ledger_common._complete_lines`: a row is appended as `json + "\n"` in one write, so only the
  * final physical line can be torn. It is torn when it lacks its newline (even if it happens to parse)
  * or when it does not parse. Bad interior lines are reported and skipped. Never throws.
  */

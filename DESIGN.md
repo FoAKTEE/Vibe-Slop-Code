@@ -1,15 +1,16 @@
 # Vibe Slop Code — design record
 
-Source prompt: `progress/prompt/init.md`. Vibe Slop Code (`vibe`) is a patch-level
-fork of VS Code (Code - OSS) that folds two Chandra needs into the editor while
-staying as close to upstream as possible.
+The brief lives in the Chandra repository (`progress/prompt/init.md`), where Vibe was
+first developed. Vibe Slop Code (`vibe`) is a patch-level fork of VS Code (Code - OSS)
+that folds two Chandra needs into the editor while staying as close to upstream as
+possible.
 
 ## 0. Principles
 
-- **Small fork.** Upstream is never vendored. `vibe/vscode/` is a gitignored checkout
-  pinned by `vibe/upstream.json`; this repo tracks only `vibe/patches/` (edits to
-  upstream files, one patch per upstream path) and `vibe/overlay/` (new files, mirrored
-  tree). `scripts/apply.sh` rebuilds the checkout; `scripts/export.sh` regenerates
+- **Small fork.** Upstream is never vendored. `vscode/` is a gitignored checkout
+  pinned by `upstream.json`; this repo tracks only `patches/` (edits to upstream
+  files, one patch per upstream path) and `overlay/` (new files, mirrored tree).
+  `scripts/apply.sh` rebuilds the checkout; `scripts/export.sh` regenerates
   patches + overlay from it. Rebase onto a new upstream = bump the pin, re-apply.
 - **Core only where an extension cannot reach.** The workspace bar needs the workbench
   grid and the main process, so it is core. The Chandra graph is a *built-in extension*
@@ -75,26 +76,29 @@ Built-in extension `vibe-chandra`, three layers, only the last one imports `vsco
    node drill-down (trial list, evidence, task file → open in editor), paper picker.
    Activates only when the workspace has `results/ledgers/`.
 
-Mermaid stays the repo's text view (`_common/visualization/dag_mermaid.py`); the
-extension reads the same ledgers, so the two can never disagree about state.
+Mermaid stays Chandra's text view (`_common/visualization/dag_mermaid.py` in the Chandra
+repository); the extension reads the same ledgers, so the two can never disagree about
+state.
 
 ## 3. Branding + CLI
 
 `product.json` patch: nameShort `Vibe`, nameLong `Vibe Slop Code`, applicationName
 `vibe`, dataFolderName `.vibe`, urlProtocol `vibe`, bundle id `dev.chandra.vibe`,
-Open VSX gallery. `vibe/bin/vibe` launches the packaged app if present, else the dev
+Open VSX gallery. `bin/vibe` launches the packaged app if present, else the dev
 build; `scripts/install-cli.sh` symlinks it into a user-writable bin dir. `code` is
 left untouched.
 
 ## 4. Verification
 
-- Unit: upstream mocha runner for core (`scripts/test.sh --run <file>`), node test
-  runner for the extension model/layout. Tests land before/with code.
-- Visual: `vibe/scripts/shot.mjs` drives the dev build over CDP, saves PNGs under
-  `/tmp/chandra/…` (never committed); the orchestrating session inspects them and
-  iterates. The graph view is also checked in a browser via the harness page.
-- Progress: knowledge-ledger nodes `vibe::<slug>` (paper `vibe`, domain `software`),
-  one gated commit per node, promotion to `solid` only through the admission gate.
+- Unit: upstream mocha runner for core (`scripts/test-core.sh <file>`, i.e. the
+  checkout's `scripts/test.sh --run <file>`), node test runner for the extension
+  model/layout. Tests land before/with code.
+- Visual: the dev build is driven over CDP and its screenshots are saved to a temp
+  directory (never committed), inspected, and iterated on. The graph view is also
+  checked in a browser via the harness page.
+- Progress was tracked in the Chandra repository's knowledge ledger: nodes
+  `vibe::<slug>` (paper `vibe`, domain `software`), one gated commit per node, promotion
+  to `solid` only through its admission gate.
 
 ## 5. DAG
 
@@ -120,7 +124,7 @@ whose host shows up as its own group in the workspace bar — no per-host setup.
   `vibe-server` (upstream `vscode-reh-<platform>-<arch>` from the same checkout; JS
   bundle + target Node on the Mac, the handful of native modules compiled for
   linux-x64 against an old glibc in a container). Output is a gitignored tarball keyed
-  by commit under `vibe/.build/server/`.
+  by commit under `.build/server/`.
 - **Install = upload, not download.** There is no public URL hosting our server, and
   many research hosts have no outbound internet anyway. On connect, if
   `~/.vibe-server/bin/<commit>/` is missing, the local tarball is uploaded over the
@@ -140,7 +144,7 @@ folders, bundle id and URL scheme stay `Vibe` / `vibe` / `.vibe` / `dev.chandra.
 so profiles, the CLI link and installed servers survive the rename. The icon is the
 product's own idea drawn small: a directed hypergraph of **five rectangular nodes** with
 one AND-join (two sources meet in a junction, one arrow continues), readable at 16 px.
-Source of truth is `vibe/branding/icon.svg`; `vibe/scripts/make-icon.sh` renders the
+Source of truth is `branding/icon.svg`; `scripts/make-icon.sh` renders the
 platform files (`.icns`, `.png`, `.ico`) deterministically into the checkout.
 
 Renaming the app renames nothing on disk, so `bin/vibe` and `verify-package.sh` also look
@@ -170,8 +174,8 @@ an agent waiting for me" across every host and workspace.
 Codex CLI. Vibe does not embed or drive it; it integrates at the seam that already
 exists — Codex: an agent profile that starts Codex on a ChatGPT Web model, a launcher
 status row (installed / running / models present) with an Open Launcher action, and a
-Chandra skill so a mission can route a worker or a cross-model review through it. The
-bridge's state directory, browser profile and tokens are never read.
+skill in the Chandra repository so a mission can route a worker or a cross-model review
+through it. The bridge's state directory, browser profile and tokens are never read.
 
 DAG: `remote-anta → rename → icon`, `rename → agents → chatgpt-web`, all → `release`.
 

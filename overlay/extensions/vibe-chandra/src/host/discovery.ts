@@ -3,7 +3,7 @@
 // Where the ledgers live: <root>/<db>/paper_<P>/<file>. Pure path logic; paths are lists of segments so
 // that nothing here depends on a platform separator or on a local file system.
 
-/** The four ledgers and the one file each of them keeps per paper (`ledger_common.LEDGER_FILENAMES`). */
+/** The four ledgers and the one file each of them keeps per paper (Chandra's `ledger_common.LEDGER_FILENAMES`). */
 export const LEDGER_FILES = {
 	knowledge: 'nodes.jsonl',
 	error: 'trials.jsonl',
