@@ -343,10 +343,16 @@ def test_uninstall_leaves_foreign_entry_alone(tmp_path: Path) -> None:
 @pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 def test_installed_symlink_resolves_to_our_root(tmp_path: Path) -> None:
     """End to end: install, then run the installed name. Whether the dev build or a
-    packaged bundle answers depends on what has been built; the root must be ours."""
+    packaged bundle answers depends on what has been built; the root must be ours. In a
+    fresh clone nothing is built yet: then the root it says it searched must be ours."""
     bin_dir = tmp_path / "bin"
     assert install(bin_dir).returncode == 0
-    fields = which_fields(run([str(bin_dir / "vibe"), "--vibe-which"], cwd=tmp_path))
+    proc = run([str(bin_dir / "vibe"), "--vibe-which"], cwd=tmp_path)
+    if proc.returncode != 0:
+        assert "no Vibe Slop Code found" in proc.stderr, proc.stderr
+        assert f"dev checkout at {REPO_ROOT}{os.sep}vscode" in proc.stderr, proc.stderr
+        return
+    fields = which_fields(proc)
     home = fields.get("checkout") or fields.get("app")
     assert home and home.startswith(f"{REPO_ROOT}{os.sep}"), fields
 
