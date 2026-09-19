@@ -17,7 +17,7 @@ import { ILogService } from '../../log/common/log.js';
 import { IStateService } from '../../state/node/state.js';
 import { ICodeWindow } from '../../window/electron-main/window.js';
 import { IWindowsMainService, OpenContext } from '../../windows/electron-main/windows.js';
-import { IWorkspaceBarEntry, IWorkspaceBarMainService } from '../common/workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarMainService, IWorkspaceBarWindowStatus, sanitizeWorkspaceBarWindowStatus } from '../common/workspaceBar.js';
 import { WorkspaceBarModel } from '../common/workspaceBarModel.js';
 
 /**
@@ -129,6 +129,23 @@ export class WorkspaceBarMainService extends Disposable implements IWorkspaceBar
 		this.onDidChangeModel(this.model.reorder(entryId, beforeId));
 	}
 
+	/**
+	 * vibe: the status is what a window says about itself, so it is only taken from windows
+	 * that are around and have a tab to show it on. What arrives over IPC is sanitized.
+	 */
+	async setWindowStatus(windowId: number, status: IWorkspaceBarWindowStatus | undefined): Promise<void> {
+		if (status !== undefined && !this.getManagedWindows().some(window => window.id === windowId)) {
+			return;
+		}
+
+		const sanitized = status === undefined ? undefined : sanitizeWorkspaceBarWindowStatus(status);
+		if (status !== undefined && sanitized === undefined) {
+			return;
+		}
+
+		this.onDidChangeModel(this.model.setWindowStatus(windowId, sanitized));
+	}
+
 	private updateEntries(): void {
 		this.onDidChangeModel(this.model.reconcile(this.getManagedWindows().map(window => ({
 			windowId: window.id,
@@ -228,6 +245,10 @@ export class WorkspaceBarMainService extends Disposable implements IWorkspaceBar
 	}
 
 	private onWillLoadWindow(window: ICodeWindow): void {
+
+		// vibe: what ran in the window is over when it loads, its extension host reports again
+		this.onDidChangeModel(this.model.setWindowStatus(window.id, undefined));
+
 		if (!this.isManaged(window)) {
 			this.release(window, true);
 		} else if (this.windowsHiddenUntilReady.has(window.id) && window.win) {

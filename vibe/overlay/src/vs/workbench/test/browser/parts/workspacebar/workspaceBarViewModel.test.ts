@@ -67,6 +67,7 @@ suite('WorkspaceBarViewModel', () => {
 		async remove(entryId: string): Promise<void> { this.calls.push(`remove ${this.label(entryId)}`); }
 		async closeEntryWindow(entryId: string): Promise<void> { this.calls.push(`close ${this.label(entryId)}`); }
 		async reorder(entryId: string, beforeId?: string): Promise<void> { this.calls.push(`reorder ${this.label(entryId)}`); }
+		async setWindowStatus(): Promise<void> { this.calls.push('setWindowStatus'); }
 	}
 
 	test('entries become host groups with tabs that know their state', () => {
@@ -117,6 +118,59 @@ suite('WorkspaceBarViewModel', () => {
 			'/global/u1/m/me/sim \u2022 perlmutter',
 			'/global/u1/m/me/runs \u2022 perlmutter'
 		]);
+	});
+
+	// vibe: what the agents of a window do, shown on its tab
+	test('tabs carry a badge for the agents of their window: attention wins over working', () => {
+		const entries = createEntries();
+		const withStatus = (statuses: (IWorkspaceBarEntry['status'])[]) => toWorkspaceBarViewItems(entries.map((entry, index) => statuses[index] ? { ...entry, status: statuses[index] } : entry), 1).flatMap(host => host.tabs);
+
+		const tabs = withStatus([
+			{ working: 2, attention: 1, label: '2 working \u00b7 1 waiting' },
+			{ working: 3, attention: 0 },
+			{ working: 0, attention: 120 },
+			{ working: 0, attention: 0, label: '1 waiting' },
+			undefined
+		]);
+		assert.deepStrictEqual(tabs.map(tab => tab.badge), [
+			{ kind: 'attention', text: '1' },
+			{ kind: 'working', text: '3' },
+			{ kind: 'attention', text: '99+' },
+			undefined,
+			undefined
+		]);
+		assert.deepStrictEqual(tabs.map(tab => tab.ariaLabel), [
+			'alpha (me), Local, 2 agents working, 1 waiting',
+			'alpha (other), Local, open in background, 3 agents working',
+			'beta, Local, pinned, open in background, 120 agents waiting',
+			'sim, perlmutter, pinned, closed',
+			'runs, perlmutter, pinned, closed'
+		]);
+		assert.deepStrictEqual(tabs.map(tab => tab.tooltip), [
+			'/Users/me/alpha \u2022 2 working \u00b7 1 waiting',
+			'/other/alpha \u2022 3 agents working',
+			'/Users/me/beta \u2022 120 agents waiting',
+			'/global/u1/m/me/sim \u2022 perlmutter \u2022 1 waiting',
+			'/global/u1/m/me/runs \u2022 perlmutter'
+		]);
+
+		assert.deepStrictEqual(withStatus([{ working: 1, attention: 0 }, { working: 0, attention: 1 }, { working: 1, attention: 1 }]).slice(0, 3).map(tab => tab.ariaLabel), [
+			'alpha (me), Local, 1 agent working',
+			'alpha (other), Local, open in background, 1 agent waiting',
+			'beta, Local, pinned, open in background, 1 agent working, 1 waiting'
+		]);
+	});
+
+	test('the render key changes with the status of a window, not with a status that is the same', () => {
+		const entries = createEntries();
+		const key = getWorkspaceBarRenderKey(entries, 1);
+		const withStatus = (working: number, attention: number, label?: string) => entries.map((entry, index) => index === 1 ? { ...entry, status: { working, attention, ...(label !== undefined ? { label } : undefined) } } : entry);
+
+		assert.notStrictEqual(getWorkspaceBarRenderKey(withStatus(1, 0), 1), key);
+		assert.strictEqual(getWorkspaceBarRenderKey(withStatus(1, 0), 1), getWorkspaceBarRenderKey(withStatus(1, 0), 1));
+		assert.notStrictEqual(getWorkspaceBarRenderKey(withStatus(1, 0), 1), getWorkspaceBarRenderKey(withStatus(2, 0), 1));
+		assert.notStrictEqual(getWorkspaceBarRenderKey(withStatus(1, 0), 1), getWorkspaceBarRenderKey(withStatus(1, 1), 1));
+		assert.notStrictEqual(getWorkspaceBarRenderKey(withStatus(1, 0), 1), getWorkspaceBarRenderKey(withStatus(1, 0, '1 working'), 1));
 	});
 
 	test('the render key changes with what is shown and with nothing else', () => {

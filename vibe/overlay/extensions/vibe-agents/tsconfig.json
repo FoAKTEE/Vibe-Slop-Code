@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./out",
+		"rewriteRelativeImportExtensions": true,
+		"erasableSyntaxOnly": true,
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.d.ts",
+		"../../src/vscode-dts/vscode.proposed.terminalDataWriteEvent.d.ts"
+	],
+	"exclude": [
+		"src/view/**"
+	]
+}

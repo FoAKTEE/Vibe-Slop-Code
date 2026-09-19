@@ -12,7 +12,7 @@ import { registerMainProcessRemoteService } from '../../../../platform/ipc/elect
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { IWorkspaceBarEntry, IWorkspaceBarMainService, WORKSPACE_BAR_CHANNEL_NAME } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarMainService, IWorkspaceBarWindowStatus, WORKSPACE_BAR_CHANNEL_NAME } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 import { IWorkspaceBarService } from '../common/workspaceBarService.js';
 
 // The workspace bar lives in the main process, every window talks to the same service
@@ -89,6 +89,11 @@ export class NativeWorkspaceBarService extends Disposable implements IWorkspaceB
 
 	reorder(entryId: string, beforeId?: string): Promise<void> {
 		return this.workspaceBarMainService.reorder(entryId, beforeId);
+	}
+
+	// vibe
+	setWindowStatus(status: IWorkspaceBarWindowStatus | undefined): Promise<void> {
+		return this.workspaceBarMainService.setWindowStatus(this.windowId, status);
 	}
 }
 

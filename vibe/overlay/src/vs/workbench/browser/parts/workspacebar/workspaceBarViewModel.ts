@@ -12,7 +12,7 @@ import { localize } from '../../../../nls.js';
 import { IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { IWindowOpenable } from '../../../../platform/window/common/window.js';
 import { getSshRemoteAuthority, ISshConfigHost } from '../../../../platform/workspaceBar/common/sshConfigHosts.js';
-import { IWorkspaceBarEntry, IWorkspaceBarHost, WorkspaceBarEntryKind } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarHost, IWorkspaceBarWindowStatus, WorkspaceBarEntryKind } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 import { getWorkspaceBarEntryId, getWorkspaceBarEntryLabel, getWorkspaceBarHost, groupWorkspaceBarEntries } from '../../../../platform/workspaceBar/common/workspaceBarModel.js';
 import { IRecentlyOpened, isRecentFolder, isRecentWorkspace } from '../../../../platform/workspaces/common/workspaces.js';
 import { IWorkspaceBarService } from '../../../services/workspaceBar/common/workspaceBarService.js';
@@ -39,6 +39,15 @@ export const enum WorkspaceBarTabState {
 	Closed = 'closed'
 }
 
+/**
+ * vibe: what the agents of the window of a tab do, as a badge: the number of agents that
+ * ask for attention or else, more subtle, the number of agents that are at work.
+ */
+export interface IWorkspaceBarTabBadge {
+	readonly kind: 'attention' | 'working';
+	readonly text: string;
+}
+
 export interface IWorkspaceBarTabViewItem {
 	readonly entry: IWorkspaceBarEntry;
 	readonly state: WorkspaceBarTabState;
@@ -46,6 +55,7 @@ export interface IWorkspaceBarTabViewItem {
 	readonly classes: string[];
 	readonly ariaLabel: string;
 	readonly tooltip: string;
+	readonly badge?: IWorkspaceBarTabBadge;
 }
 
 export interface IWorkspaceBarHostViewItem {
@@ -72,7 +82,9 @@ export function toWorkspaceBarViewItems(entries: readonly IWorkspaceBarEntry[], 
 				classes.push('pinned');
 			}
 
-			return { entry, state, selected: state === WorkspaceBarTabState.Active, classes, ariaLabel: getTabAriaLabel(entry, state), tooltip: getTabTooltip(entry) };
+			const badge = getTabBadge(entry.status); // vibe
+
+			return { entry, state, selected: state === WorkspaceBarTabState.Active, classes, ariaLabel: getTabAriaLabel(entry, state), tooltip: getTabTooltip(entry), ...(badge ? { badge } : undefined) };
 		})
 	}));
 }
@@ -101,14 +113,63 @@ function getTabAriaLabel(entry: IWorkspaceBarEntry, state: WorkspaceBarTabState)
 		parts.push(localize('workspaceBar.tabClosed', "closed"));
 	}
 
+	const status = getTabStatusLabel(entry.status); // vibe
+	if (status) {
+		parts.push(status);
+	}
+
 	return parts.join(', ');
 }
 
 function getTabTooltip(entry: IWorkspaceBarEntry): string {
 	const path = getWorkspaceBarEntryPath(entry);
+	const tooltip = entry.host.isLocal ? path : `${path} ${SEPARATOR} ${entry.host.label}`;
 
-	return entry.host.isLocal ? path : `${path} ${SEPARATOR} ${entry.host.label}`;
+	const status = entry.status?.label || getTabStatusLabel(entry.status); // vibe
+
+	return status ? `${tooltip} ${SEPARATOR} ${status}` : tooltip;
 }
+
+//#region vibe: window status
+
+const MAX_BADGE_COUNT = 99;
+
+function getTabBadge(status: IWorkspaceBarWindowStatus | undefined): IWorkspaceBarTabBadge | undefined {
+	if (!status) {
+		return undefined;
+	}
+
+	const toText = (count: number) => count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(count);
+	if (status.attention > 0) {
+		return { kind: 'attention', text: toText(status.attention) };
+	}
+
+	return status.working > 0 ? { kind: 'working', text: toText(status.working) } : undefined;
+}
+
+/**
+ * `2 agents working, 1 waiting`: the counts in words, for
+ * assistive technology and where a window gave no summary.
+ */
+function getTabStatusLabel(status: IWorkspaceBarWindowStatus | undefined): string | undefined {
+	if (!status || (status.working <= 0 && status.attention <= 0)) {
+		return undefined;
+	}
+
+	if (status.attention <= 0) {
+		return status.working === 1 ? localize('workspaceBar.agentWorking', "1 agent working") : localize('workspaceBar.agentsWorking', "{0} agents working", status.working);
+	}
+
+	if (status.working <= 0) {
+		return status.attention === 1 ? localize('workspaceBar.agentWaiting', "1 agent waiting") : localize('workspaceBar.agentsWaiting', "{0} agents waiting", status.attention);
+	}
+
+	return status.working === 1
+		? localize('workspaceBar.agentWorkingAndWaiting', "1 agent working, {0} waiting", status.attention)
+		: localize('workspaceBar.agentsWorkingAndWaiting', "{0} agents working, {1} waiting", status.working, status.attention);
+}
+
+//#endregion
 
 /**
  * The path of an entry as a terminal on its host understands it.
@@ -125,7 +186,7 @@ export function getWorkspaceBarEntryPath(entry: IWorkspaceBarEntry): string {
  * every time another window gets focus.
  */
 export function getWorkspaceBarRenderKey(entries: readonly IWorkspaceBarEntry[], windowId: number): string {
-	return JSON.stringify(entries.map(entry => [entry.id, entry.label, entry.description, entry.host.id, entry.host.label, entry.pinned, getTabState(entry, windowId)]));
+	return JSON.stringify(entries.map(entry => [entry.id, entry.label, entry.description, entry.host.id, entry.host.label, entry.pinned, getTabState(entry, windowId), entry.status?.working, entry.status?.attention, entry.status?.label /* vibe */]));
 }
 
 //#endregion

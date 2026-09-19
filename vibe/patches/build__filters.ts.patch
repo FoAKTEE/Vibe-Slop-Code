@@ -1,11 +1,12 @@
 diff --git a/build/filters.ts b/build/filters.ts
-index 9a5766c7e6270644bf1df726765dec6af15616fd..a2b797276edb750906fb454f8654be0c0952b9ea 100644
+index 9a5766c7e6270644bf1df726765dec6af15616fd..9f0fe5267bc5d2d46f6c5be8db37613f2c6a1325 100644
 --- a/build/filters.ts
 +++ b/build/filters.ts
-@@ -167,6 +167,10 @@ export const indentationFilter = Object.freeze<string[]>([
+@@ -167,6 +167,11 @@ export const indentationFilter = Object.freeze<string[]>([
  	'!extensions/ipynb/notebook-out/**',
  	'!extensions/notebook-renderers/renderer-out/*.js',
  	'!extensions/simple-browser/media/*.js',
++	'!extensions/vibe-agents/media/*.js',
 +	'!extensions/vibe-chandra/media/*.js',
 +
 +	// extensions/vibe-remote-ssh is a copy of open-remote-ssh with its code style, see its PROVENANCE.md
@@ -13,12 +14,13 @@ index 9a5766c7e6270644bf1df726765dec6af15616fd..a2b797276edb750906fb454f8654be0c
  ]);
  
  export const copyrightFilter = Object.freeze<string[]>([
-@@ -225,6 +229,12 @@ export const copyrightFilter = Object.freeze<string[]>([
+@@ -225,6 +230,13 @@ export const copyrightFilter = Object.freeze<string[]>([
  
  	// extensions/copilot has its own code style
  	'!extensions/copilot/**',
 +
-+	// extensions/vibe-chandra carries SPDX headers
++	// extensions/vibe-agents and extensions/vibe-chandra carry SPDX headers
++	'!extensions/vibe-agents/**',
 +	'!extensions/vibe-chandra/**',
 +
 +	// extensions/vibe-remote-ssh is a copy of open-remote-ssh, see its PROVENANCE.md
@@ -26,7 +28,7 @@ index 9a5766c7e6270644bf1df726765dec6af15616fd..a2b797276edb750906fb454f8654be0c
  ]);
  
  export const tsFormattingFilter = Object.freeze<string[]>([
-@@ -248,6 +258,9 @@ export const tsFormattingFilter = Object.freeze<string[]>([
+@@ -248,6 +260,9 @@ export const tsFormattingFilter = Object.freeze<string[]>([
  
  	// extensions/copilot has its own code style
  	'!extensions/copilot/**',

@@ -11,7 +11,7 @@ import { extUri, extUriIgnorePathCase } from '../../../../base/common/resources.
 import { URI } from '../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { IAnyWorkspaceIdentifier } from '../../../workspace/common/workspace.js';
-import { IWorkspaceBarEntry } from '../../common/workspaceBar.js';
+import { IWorkspaceBarEntry, sanitizeWorkspaceBarWindowStatus } from '../../common/workspaceBar.js';
 import { getWorkspaceBarEntryId, getWorkspaceBarEntryLabel, getWorkspaceBarHost, groupWorkspaceBarEntries, IWorkspaceBarWindow, toWorkspaceBarTarget, WorkspaceBarModel } from '../../common/workspaceBarModel.js';
 
 suite('WorkspaceBarModel', () => {
@@ -713,6 +713,112 @@ suite('WorkspaceBarModel', () => {
 		test('state written by a newer version is read on a best effort basis', () => {
 			const model = new WorkspaceBarModel({ version: 99, future: true, entries: [{ uri: localA.toString(), kind: 'folder', colour: 'red' }, { uri: localB.toString(), kind: 'tab-group' }] });
 			assert.deepStrictEqual(labels(model), ['Local/alpha']);
+		});
+	});
+
+	// vibe: what the agents of a window do, shown on its tab
+	suite('window status', () => {
+
+		function statuses(model: WorkspaceBarModel): (string | undefined)[] {
+			return model.getEntries().map(entry => entry.status ? `${entry.label}:${entry.status.working}/${entry.status.attention}${entry.status.label ? `:${entry.status.label}` : ''}` : undefined);
+		}
+
+		test('is merged into the entry of its window, as plain data, and only there', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA), folderWindow(2, sshA)]);
+
+			assert.strictEqual(model.setWindowStatus(2, { working: 2, attention: 1, label: '2 working, 1 waiting' }), true);
+			assert.deepStrictEqual(statuses(model), [undefined, 'alpha:2/1:2 working, 1 waiting']);
+			assert.strictEqual(Object.keys(model.getEntries()[0]).includes('status'), false, 'optional properties are left out');
+			assert.deepStrictEqual(JSON.parse(JSON.stringify(model.getEntries()))[1].status, { working: 2, attention: 1, label: '2 working, 1 waiting' });
+		});
+
+		test('setting what is set already changes nothing', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA)]);
+
+			assert.deepStrictEqual([
+				model.setWindowStatus(1, { working: 1, attention: 0 }),
+				model.setWindowStatus(1, { working: 1, attention: 0 }),
+				model.setWindowStatus(1, { working: 1, attention: 0, label: 'now with a label' }),
+				model.setWindowStatus(1, undefined),
+				model.setWindowStatus(1, undefined),
+				model.setWindowStatus(7, undefined)
+			], [true, false, true, true, false, false]);
+			assert.deepStrictEqual(statuses(model), [undefined]);
+		});
+
+		test('of a window without entry is kept and shows once the window has one', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA), emptyWindow(2)]);
+
+			assert.strictEqual(model.setWindowStatus(2, { working: 1, attention: 0 }), false, 'no entry shows it');
+			assert.deepStrictEqual(statuses(model), [undefined]);
+
+			model.reconcile([folderWindow(1, localA), folderWindow(2, localB)]);
+			assert.deepStrictEqual(statuses(model), [undefined, 'beta:1/0']);
+		});
+
+		test('goes away with its window, a pinned entry that stays around loses it', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA), folderWindow(2, localB)]);
+			model.pin(entryByLabel(model, 'beta').id);
+			model.setWindowStatus(1, { working: 1, attention: 0 });
+			model.setWindowStatus(2, { working: 0, attention: 3 });
+
+			assert.strictEqual(model.reconcile([folderWindow(1, localA)]), true);
+			assert.deepStrictEqual(statuses(model), ['alpha:1/0', undefined]);
+
+			// a new window that happens to show the entry again starts without status
+			model.reconcile([folderWindow(1, localA), folderWindow(3, localB)]);
+			assert.deepStrictEqual(statuses(model), ['alpha:1/0', undefined]);
+		});
+
+		test('follows its window to the entry of another folder', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA)]);
+			model.setWindowStatus(1, { working: 1, attention: 0 });
+
+			model.reconcile([folderWindow(1, localC)]);
+			assert.deepStrictEqual(statuses(model), ['gamma:1/0']);
+		});
+
+		test('is not persisted', () => {
+			const model = new WorkspaceBarModel();
+			model.reconcile([folderWindow(1, localA)]);
+			model.pin(entryByLabel(model, 'alpha').id);
+			const before = JSON.stringify(model.serialize());
+
+			model.setWindowStatus(1, { working: 4, attention: 2 });
+			assert.strictEqual(JSON.stringify(model.serialize()), before);
+		});
+
+		test('what arrives from a window is sanitized', () => {
+			assert.deepStrictEqual([
+				sanitizeWorkspaceBarWindowStatus({ working: 2, attention: 1, label: ' 2 working ' }),
+				sanitizeWorkspaceBarWindowStatus({ working: 2.9, attention: -4, other: 'dropped' }),
+				sanitizeWorkspaceBarWindowStatus({ working: '3', attention: Number.NaN, label: 7 }),
+				sanitizeWorkspaceBarWindowStatus({ working: 1e9, attention: 0, label: 'x'.repeat(1000) })?.working,
+				sanitizeWorkspaceBarWindowStatus({ working: 1, attention: 0, label: 'x'.repeat(1000) })?.label?.length,
+				sanitizeWorkspaceBarWindowStatus({ working: 0, attention: 0 }),
+				sanitizeWorkspaceBarWindowStatus({ working: 0, attention: 0, label: '1 waiting' }),
+				sanitizeWorkspaceBarWindowStatus(undefined),
+				sanitizeWorkspaceBarWindowStatus(null),
+				sanitizeWorkspaceBarWindowStatus('2 working'),
+				sanitizeWorkspaceBarWindowStatus([1, 2])
+			], [
+				{ working: 2, attention: 1, label: '2 working' },
+				{ working: 2, attention: 0 },
+				{ working: 0, attention: 0 },
+				9999,
+				200,
+				{ working: 0, attention: 0 },
+				{ working: 0, attention: 0, label: '1 waiting' },
+				undefined,
+				undefined,
+				undefined,
+				undefined
+			]);
 		});
 	});
 

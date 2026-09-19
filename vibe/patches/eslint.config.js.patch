@@ -1,14 +1,15 @@
 diff --git a/eslint.config.js b/eslint.config.js
-index 380730532e41e6e6247774351da9c07deeda6d6f..a58838e4f525c602821bf3d0228cc3622e460755 100644
+index 380730532e41e6e6247774351da9c07deeda6d6f..473b2097eaa5d8f6580b49bca8c96bf2fa76d3e6 100644
 --- a/eslint.config.js
 +++ b/eslint.config.js
-@@ -2938,6 +2938,16 @@ export default defineConfig(
+@@ -2938,6 +2938,17 @@ export default defineConfig(
  			],
  		}
  	},
-+	// vibe-chandra and vibe-remote-ssh carry SPDX headers
++	// vibe-agents, vibe-chandra and vibe-remote-ssh carry SPDX headers
 +	{
 +		files: [
++			'extensions/vibe-agents/**',
 +			'extensions/vibe-chandra/**',
 +			'extensions/vibe-remote-ssh/**',
 +		],
@@ -19,3 +20,20 @@ index 380730532e41e6e6247774351da9c07deeda6d6f..a58838e4f525c602821bf3d0228cc362
  	// Forbid new JavaScript files - use TypeScript instead.
  	// The allowlist of pre-existing JS/CJS/MJS files lives in
  	// `.eslint-allowed-javascript-files`, which is gated by CODEOWNERS.
+@@ -2955,4 +2966,16 @@ export default defineConfig(
+ 		rules: {
+ 			'local/code-no-new-javascript-files': 'error',
+ 		},
++	},
++	// vibe: the stand-in agent of vibe-agents runs on hosts reached over SSH, whose Node.js is too old for TypeScript
++	{
++		files: [
++			'extensions/vibe-agents/test/fake-agent.mjs',
++		],
++		plugins: {
++			'local': pluginLocal,
++		},
++		rules: {
++			'local/code-no-new-javascript-files': 'off',
++		},
+ 	});

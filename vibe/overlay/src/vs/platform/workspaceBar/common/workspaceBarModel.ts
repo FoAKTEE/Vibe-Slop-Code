@@ -12,7 +12,7 @@ import { URI } from '../../../base/common/uri.js';
 import { localize } from '../../../nls.js';
 import { getRemoteAuthority } from '../../remote/common/remoteHosts.js';
 import { IAnyWorkspaceIdentifier, isSingleFolderWorkspaceIdentifier, isWorkspaceIdentifier, UNTITLED_WORKSPACE_NAME, WORKSPACE_SUFFIX } from '../../workspace/common/workspace.js';
-import { IWorkspaceBarEntry, IWorkspaceBarHost, WorkspaceBarEntryKind } from './workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarHost, IWorkspaceBarWindowStatus, WorkspaceBarEntryKind } from './workspaceBar.js';
 
 //#region Identity
 
@@ -269,6 +269,9 @@ export class WorkspaceBarModel {
 	private activeWindowId: number | undefined = undefined;
 	private activeTime = 0;
 
+	// vibe: what windows reported about their agents, see `setWindowStatus`
+	private readonly windowStatus = new Map<number /* window */, IWorkspaceBarWindowStatus>();
+
 	/**
 	 * @param serializedState what `serialize` returned in a previous session.
 	 * Anything that is not understood is ignored.
@@ -290,6 +293,7 @@ export class WorkspaceBarModel {
 
 		return this.entries.map(entry => {
 			const description = descriptions.get(entry);
+			const status = entry.windowId !== undefined ? this.windowStatus.get(entry.windowId) : undefined; // vibe
 
 			return {
 				id: entry.id,
@@ -301,7 +305,8 @@ export class WorkspaceBarModel {
 				pinned: entry.pinned,
 				...(entry.windowId !== undefined ? { windowId: entry.windowId } : undefined),
 				active: entry === activeEntry,
-				lastActiveTime: entry.lastActiveTime
+				lastActiveTime: entry.lastActiveTime,
+				...(status !== undefined ? { status } : undefined)
 			};
 		});
 	}
@@ -380,6 +385,14 @@ export class WorkspaceBarModel {
 
 		let changed = false;
 
+		// vibe: the status of a window goes away with it
+		const windowIds = new Set(windows.map(window => window.windowId));
+		for (const windowId of [...this.windowStatus.keys()]) {
+			if (!windowIds.has(windowId)) {
+				this.windowStatus.delete(windowId);
+			}
+		}
+
 		// Known entries: an entry keeps its window for as long as that
 		// window shows it, otherwise the oldest window wins
 		for (const entry of [...this.entries]) {
@@ -456,6 +469,26 @@ export class WorkspaceBarModel {
 		}
 
 		this.entries.splice(index, 0, entry);
+	}
+
+	/**
+	 * vibe: sets what the window `windowId` reports about its agents, `undefined` clears it.
+	 * The status is kept for as long as the window is around (see `reconcile`) and shows on
+	 * the entry of the window, if it has one. It is not part of the serialized state.
+	 */
+	setWindowStatus(windowId: number, status: IWorkspaceBarWindowStatus | undefined): boolean {
+		const previous = this.windowStatus.get(windowId);
+		if (previous?.working === status?.working && previous?.attention === status?.attention && previous?.label === status?.label) {
+			return false;
+		}
+
+		if (status === undefined) {
+			this.windowStatus.delete(windowId);
+		} else {
+			this.windowStatus.set(windowId, { working: status.working, attention: status.attention, ...(status.label !== undefined ? { label: status.label } : undefined) });
+		}
+
+		return this.entries.some(entry => entry.windowId === windowId);
 	}
 
 	//#endregion

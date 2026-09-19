@@ -271,6 +271,14 @@ export class WorkspaceBarPart extends Part implements IWorkspaceBarPartService {
 			append(tabElement, $('span.workspace-tab-description')).textContent = entry.description;
 		}
 
+		// vibe: what the agents of the window do. Part of the label of the tab for assistive technology.
+		if (tab.badge) {
+			const badge = append(tabElement, $('span.workspace-tab-badge'));
+			badge.classList.add(tab.badge.kind);
+			badge.setAttribute('aria-hidden', 'true');
+			badge.textContent = tab.badge.text;
+		}
+
 		// As with editor tabs: the pin makes room for closing when hovering
 		const actions = append(tabElement, $('.workspace-tab-actions'));
 		if (entry.pinned) {

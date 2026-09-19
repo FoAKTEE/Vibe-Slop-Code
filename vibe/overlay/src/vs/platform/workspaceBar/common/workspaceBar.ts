@@ -44,6 +44,54 @@ export interface IWorkspaceBarHost {
 	readonly remoteAuthority?: string;
 }
 
+// vibe: what the agents of a window do, reported by the window and shown on its tab
+/**
+ * What runs in a window that the user may want to know about while the
+ * window is hidden: how many agents are at work and how many of them
+ * ask for attention. Plain data, as it travels with the entries.
+ */
+export interface IWorkspaceBarWindowStatus {
+
+	/**
+	 * Number of agents that are at work.
+	 */
+	readonly working: number;
+
+	/**
+	 * Number of agents that wait for the user or
+	 * ended without the user having looked at them.
+	 */
+	readonly attention: number;
+
+	/**
+	 * A summary to show as tooltip, such as `2 working, 1 waiting`.
+	 */
+	readonly label?: string;
+}
+
+const MAX_WINDOW_STATUS_COUNT = 9999;
+const MAX_WINDOW_STATUS_LABEL_LENGTH = 200;
+
+/**
+ * A status as it arrives from a window, where extensions report it: anything
+ * that is not an object is no status, counts are made non-negative integers.
+ */
+export function sanitizeWorkspaceBarWindowStatus(value: unknown): IWorkspaceBarWindowStatus | undefined {
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+		return undefined;
+	}
+
+	const candidate = value as { working?: unknown; attention?: unknown; label?: unknown };
+	const toCount = (count: unknown) => typeof count === 'number' && Number.isFinite(count) ? Math.min(MAX_WINDOW_STATUS_COUNT, Math.max(0, Math.floor(count))) : 0;
+	const label = typeof candidate.label === 'string' ? candidate.label.trim().substring(0, MAX_WINDOW_STATUS_LABEL_LENGTH) : '';
+
+	return {
+		working: toCount(candidate.working),
+		attention: toCount(candidate.attention),
+		...(label ? { label } : undefined)
+	};
+}
+
 /**
  * One folder or multi-root workspace in the workspace bar.
  *
@@ -105,6 +153,12 @@ export interface IWorkspaceBarEntry {
 	 * or `0` if it was never active.
 	 */
 	readonly lastActiveTime: number;
+
+	/**
+	 * vibe: what the window of this entry reported about its agents.
+	 * Not set for entries without window and windows that reported nothing.
+	 */
+	readonly status?: IWorkspaceBarWindowStatus;
 }
 
 export const IWorkspaceBarMainService = createDecorator<IWorkspaceBarMainService>('workspaceBarMainService');
@@ -164,4 +218,11 @@ export interface IWorkspaceBarMainService {
 	 * was a window to present.
 	 */
 	revealLastActive(): Promise<boolean>;
+
+	/**
+	 * vibe: sets what the agents of a window do, or clears it with `undefined`. The
+	 * status shows on the tab of the window in every workspace bar. It is gone
+	 * when the window closes, reloads or loads another workspace.
+	 */
+	setWindowStatus(windowId: number, status: IWorkspaceBarWindowStatus | undefined): Promise<void>;
 }

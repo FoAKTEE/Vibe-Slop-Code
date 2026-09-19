@@ -172,6 +172,49 @@
 	background-color: var(--vscode-workspaceBar-liveIndicatorForeground);
 }
 
+/* vibe: what the agents of the window do. Attention is a badge as on the activity bar, work a dot with a count */
+.monaco-workbench .part.workspacebar .workspace-tab-badge {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: var(--vscode-cornerRadius-circle);
+	font-size: var(--vscode-fontSize-label3);
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 16px;
+}
+
+.monaco-workbench .part.workspacebar .workspace-tab-badge.attention {
+	color: var(--vscode-activityBarBadge-foreground);
+	background-color: var(--vscode-activityBarBadge-background);
+}
+
+.monaco-workbench .part.workspacebar .workspace-tab-badge.working {
+	gap: 3px;
+	padding: 0 2px;
+	font-weight: normal;
+	opacity: 0.8;
+}
+
+.monaco-workbench .part.workspacebar .workspace-tab-badge.working::before {
+	content: '';
+	width: 5px;
+	height: 5px;
+	border: 1px solid currentColor;
+	border-radius: var(--vscode-cornerRadius-circle);
+	box-sizing: border-box;
+}
+
+.monaco-workbench.hc-black .part.workspacebar .workspace-tab-badge.attention,
+.monaco-workbench.hc-light .part.workspacebar .workspace-tab-badge.attention {
+	border: 1px solid var(--vscode-contrastBorder);
+}
+
 /* Pin and close share one place, as in editor tabs */
 
 .monaco-workbench .part.workspacebar .workspace-tab-actions {

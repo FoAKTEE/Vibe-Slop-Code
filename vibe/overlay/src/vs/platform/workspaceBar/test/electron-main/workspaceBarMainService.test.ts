@@ -460,6 +460,10 @@ suite('WorkspaceBarMainService', () => {
 		return entries.map(entry => `${entry.host.label}/${entry.label}${entry.windowId !== undefined ? `#${entry.windowId}` : ''}${entry.active ? '*' : ''}${entry.pinned ? '!' : ''}`);
 	}
 
+	function describeStatuses(entries: readonly IWorkspaceBarEntry[]): (string | undefined)[] {
+		return entries.map(entry => entry.status ? `${entry.label}:${entry.status.working}/${entry.status.attention}${entry.status.label ? `:${entry.status.label}` : ''}` : undefined);
+	}
+
 	async function entriesOf(harness: ITestHarness): Promise<string[]> {
 		return describeEntries(await harness.service.getEntries());
 	}
@@ -582,6 +586,90 @@ suite('WorkspaceBarMainService', () => {
 
 			harness.windows.testLoadInPlace(window, { folder: URI.from({ scheme: 'vscode-remote', authority: 'ssh-remote+anta', path: '/home/me/packages' }), remoteAuthority: 'ssh-remote+anta' });
 			assert.deepStrictEqual(await entriesOf(harness), ['anta/packages#1*']);
+		});
+
+		// vibe: what the agents of a window do, shown on its tab
+		fakeTimersTest('window status: merged into the entry of the window and broadcast, nothing when unchanged', async () => {
+			const harness = createHarness();
+			const windowA = harness.windows.testOpenReadyWindow({ folder: folderA });
+			const windowB = harness.windows.testOpenReadyWindow({ folder: folderB });
+			await timeout(100);
+
+			const events: (string | undefined)[][] = [];
+			disposables.add(harness.service.onDidChangeEntries(entries => events.push(describeStatuses(entries))));
+
+			await harness.service.setWindowStatus(windowA.id, { working: 2, attention: 1, label: '2 working, 1 waiting' });
+			await harness.service.setWindowStatus(windowA.id, { working: 2, attention: 1, label: '2 working, 1 waiting' });
+			await timeout(100);
+			assert.deepStrictEqual(events, [['alpha:2/1:2 working, 1 waiting', undefined]]);
+
+			// a burst from several windows is one event
+			await harness.service.setWindowStatus(windowA.id, { working: 1, attention: 0 });
+			await harness.service.setWindowStatus(windowB.id, { working: 0, attention: 1 });
+			await harness.service.setWindowStatus(windowA.id, { working: 0, attention: 2 });
+			await timeout(100);
+			assert.deepStrictEqual(events.slice(1), [['alpha:0/2', 'beta:0/1']]);
+
+			// cleared, and cleared again
+			await harness.service.setWindowStatus(windowA.id, undefined);
+			await harness.service.setWindowStatus(windowA.id, undefined);
+			await timeout(100);
+			assert.deepStrictEqual(events.slice(2), [[undefined, 'beta:0/1']]);
+		});
+
+		fakeTimersTest('window status: what is no status is ignored, so is a window that is not known or not a workspace of the user', async () => {
+			const harness = createHarness();
+			const windowA = harness.windows.testOpenReadyWindow({ folder: folderA });
+			const development = harness.windows.testOpenReadyWindow({ folder: folderB, extensionDevelopment: true });
+			await timeout(100);
+
+			const events: (string | undefined)[][] = [];
+			disposables.add(harness.service.onDidChangeEntries(entries => events.push(describeStatuses(entries))));
+
+			// eslint-disable-next-line local/code-no-any-casts
+			await harness.service.setWindowStatus(windowA.id, 'working' as any);
+			await harness.service.setWindowStatus(4711, { working: 1, attention: 0 });
+			await harness.service.setWindowStatus(development.id, { working: 1, attention: 0 });
+			await timeout(100);
+			assert.deepStrictEqual([events, describeStatuses(await harness.service.getEntries())], [[], [undefined]]);
+
+			// numbers are made what a badge can show
+			await harness.service.setWindowStatus(windowA.id, { working: 2.7, attention: -1 });
+			assert.deepStrictEqual(describeStatuses(await harness.service.getEntries()), ['alpha:2/0']);
+		});
+
+		fakeTimersTest('window status: cleared when the window closes, reloads or loads another folder in place', async () => {
+			const harness = createHarness();
+			const windowA = harness.windows.testOpenReadyWindow({ folder: folderA });
+			const windowB = harness.windows.testOpenReadyWindow({ folder: folderB });
+			await harness.service.pin(await entryId(harness, 'beta'));
+			await harness.service.setWindowStatus(windowA.id, { working: 1, attention: 0 });
+			await harness.service.setWindowStatus(windowB.id, { working: 0, attention: 1 });
+			assert.deepStrictEqual(describeStatuses(await harness.service.getEntries()), ['alpha:1/0', 'beta:0/1']);
+
+			// reload: the extension host of the window starts over and reports again
+			harness.windows.testLoadInPlace(windowA, { folder: folderA }, LoadReason.RELOAD);
+			assert.deepStrictEqual(describeStatuses(await harness.service.getEntries()), [undefined, 'beta:0/1']);
+			await harness.service.setWindowStatus(windowA.id, { working: 3, attention: 0 });
+
+			// another folder in place: what ran in the window before is gone
+			harness.windows.testLoadInPlace(windowA, { folder: folderC });
+			assert.deepStrictEqual([await entriesOf(harness), describeStatuses(await harness.service.getEntries())], [['Local/beta#2*!', 'Local/gamma#1'], ['beta:0/1', undefined]]);
+
+			// closed: the pinned entry stays, its status does not
+			harness.windows.testCloseWindow(windowB);
+			assert.deepStrictEqual([await entriesOf(harness), describeStatuses(await harness.service.getEntries())], [['Local/beta!', 'Local/gamma#1*'], [undefined, undefined]]);
+		});
+
+		fakeTimersTest('window status: is not part of the persisted state', async () => {
+			const state = new InMemoryTestStateMainService();
+			const harness = createHarness({ state });
+			const windowA = harness.windows.testOpenReadyWindow({ folder: folderA });
+			await harness.service.pin(await entryId(harness, 'alpha'));
+			const before = JSON.stringify(state.getItem('workspaceBar.state'));
+
+			await harness.service.setWindowStatus(windowA.id, { working: 1, attention: 1 });
+			assert.strictEqual(JSON.stringify(state.getItem('workspaceBar.state')), before);
 		});
 
 		fakeTimersTest('pinned entries and their order survive the session', async () => {

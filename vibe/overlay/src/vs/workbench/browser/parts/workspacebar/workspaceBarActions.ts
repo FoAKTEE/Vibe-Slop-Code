@@ -26,7 +26,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { collectSshConfigHosts, ISshConfigHost } from '../../../../platform/workspaceBar/common/sshConfigHosts.js';
-import { IWorkspaceBarEntry } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarEntry, sanitizeWorkspaceBarWindowStatus } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
 import { IsSessionsWindowContext } from '../../../common/contextkeys.js';
@@ -439,6 +439,18 @@ registerAction2(class extends Action2 {
 
 		return configurationService.updateValue(WORKSPACE_BAR_VISIBLE_SETTING, configurationService.getValue(WORKSPACE_BAR_VISIBLE_SETTING) === false);
 	}
+});
+
+//#endregion
+
+//#region Window status
+
+// vibe: how extensions tell what the agents of their window do. The window is the one the command
+// runs in, the argument is plain data: `{ working, attention, label? }` or nothing to clear it.
+export const SET_WORKSPACE_BAR_WINDOW_STATUS_COMMAND_ID = '_workbench.workspaceBar.setWindowStatus';
+
+CommandsRegistry.registerCommand(SET_WORKSPACE_BAR_WINDOW_STATUS_COMMAND_ID, (accessor: ServicesAccessor, status?: unknown) => {
+	return accessor.get(IWorkspaceBarService).setWindowStatus(status === undefined || status === null ? undefined : sanitizeWorkspaceBarWindowStatus(status));
 });
 
 //#endregion

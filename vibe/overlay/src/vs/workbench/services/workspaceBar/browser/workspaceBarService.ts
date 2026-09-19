@@ -27,6 +27,7 @@ export class NullWorkspaceBarService implements IWorkspaceBarService {
 	async remove(): Promise<void> { }
 	async closeEntryWindow(): Promise<void> { }
 	async reorder(): Promise<void> { }
+	async setWindowStatus(): Promise<void> { } // vibe
 }
 
 registerSingleton(IWorkspaceBarService, NullWorkspaceBarService, InstantiationType.Delayed);

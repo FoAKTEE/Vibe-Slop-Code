@@ -1,0 +1,183 @@
+{
+  "name": "vibe-agents",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "10.0.0",
+  "publisher": "vibe",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension",
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "enabledApiProposals": [
+    "terminalDataWriteEvent"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:vibeAgents.sessions"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%capabilities.untrustedWorkspaces%",
+      "restrictedConfigurations": [
+        "vibeAgents.profiles"
+      ]
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vibeAgents",
+          "title": "%container.title%",
+          "icon": "media/agents.svg"
+        }
+      ]
+    },
+    "views": {
+      "vibeAgents": [
+        {
+          "id": "vibeAgents.sessions",
+          "type": "webview",
+          "name": "%view.sessions.name%"
+        },
+        {
+          "id": "vibeAgents.attention",
+          "name": "%view.attention.name%",
+          "when": "false"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vibeAgents.newAgent",
+        "title": "%command.newAgent%",
+        "category": "Agents",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vibeAgents.adoptTerminal",
+        "title": "%command.adoptTerminal%",
+        "category": "Agents",
+        "icon": "$(link)"
+      },
+      {
+        "command": "vibeAgents.clearFinished",
+        "title": "%command.clearFinished%",
+        "category": "Agents",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "vibeAgents.focusNext",
+        "title": "%command.focusNext%",
+        "category": "Agents",
+        "icon": "$(bell)"
+      }
+    ],
+    "configuration": {
+      "title": "Agents",
+      "properties": {
+        "vibeAgents.profiles": {
+          "type": "array",
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "%config.profiles%",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "command"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "%config.profiles.id%"
+              },
+              "label": {
+                "type": "string",
+                "description": "%config.profiles.label%"
+              },
+              "command": {
+                "type": "string",
+                "description": "%config.profiles.command%"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "%config.profiles.args%"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "%config.profiles.env%"
+              },
+              "cwd": {
+                "type": "string",
+                "description": "%config.profiles.cwd%"
+              },
+              "icon": {
+                "type": "string",
+                "description": "%config.profiles.icon%"
+              },
+              "quietSeconds": {
+                "type": "number",
+                "minimum": 0,
+                "default": 8,
+                "description": "%config.profiles.quietSeconds%"
+              },
+              "matchCommand": {
+                "type": "string",
+                "description": "%config.profiles.matchCommand%"
+              }
+            }
+          }
+        },
+        "vibeAgents.adoptCommands": {
+          "type": "string",
+          "default": "^(claude|codex|gemini|aider|opencode)(\\s|$)",
+          "scope": "window",
+          "markdownDescription": "%config.adoptCommands%"
+        },
+        "vibeAgents.notify": {
+          "type": "string",
+          "enum": [
+            "off",
+            "attention",
+            "all"
+          ],
+          "enumDescriptions": [
+            "%config.notify.off%",
+            "%config.notify.attention%",
+            "%config.notify.all%"
+          ],
+          "default": "attention",
+          "scope": "window",
+          "description": "%config.notify%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"test/*.test.ts\"",
+    "typecheck": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/typecheck.test.ts",
+    "compile": "gulp compile-extension:vibe-agents && npm run build-webview",
+    "watch": "npm run build-webview && gulp watch-extension:vibe-agents",
+    "build-webview": "node ./esbuild.webview.mts",
+    "vscode:prepublish": "npm run build-webview"
+  }
+}

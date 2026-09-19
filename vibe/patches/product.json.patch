@@ -1,8 +1,8 @@
 diff --git a/product.json b/product.json
-index 15f5796e3ac4d41e70df088ea29716626e369273..65109c6e1c91e300a2598ca74ea9d08f1c36bd8a 100644
+index 15f5796e3ac4d41e70df088ea29716626e369273..d92333703641d4fe7e1241a01d6586da03460575 100644
 --- a/product.json
 +++ b/product.json
-@@ -1,39 +1,48 @@
+@@ -1,39 +1,51 @@
  {
 -	"nameShort": "Code - OSS",
 -	"nameLong": "Code - OSS",
@@ -63,6 +63,9 @@ index 15f5796e3ac4d41e70df088ea29716626e369273..65109c6e1c91e300a2598ca74ea9d08f
 +		"itemUrl": "https://open-vsx.org/vscode/item"
 +	},
 +	"extensionEnabledApiProposals": {
++		"vibe.vibe-agents": [
++			"terminalDataWriteEvent"
++		],
 +		"vibe.vibe-remote-ssh": [
 +			"resolvers",
 +			"contribViewsRemote"

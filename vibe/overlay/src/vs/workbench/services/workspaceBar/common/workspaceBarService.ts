@@ -5,7 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IWorkspaceBarEntry } from '../../../../platform/workspaceBar/common/workspaceBar.js';
+import { IWorkspaceBarEntry, IWorkspaceBarWindowStatus } from '../../../../platform/workspaceBar/common/workspaceBar.js';
 
 export const IWorkspaceBarService = createDecorator<IWorkspaceBarService>('workspaceBarService');
 
@@ -57,4 +57,10 @@ export interface IWorkspaceBarService {
 	closeEntryWindow(entryId: string): Promise<void>;
 
 	reorder(entryId: string, beforeId?: string): Promise<void>;
+
+	/**
+	 * vibe: sets what the agents of this window do, or clears it with
+	 * `undefined`. It shows on the tab of this window in every window.
+	 */
+	setWindowStatus(status: IWorkspaceBarWindowStatus | undefined): Promise<void>;
 }
