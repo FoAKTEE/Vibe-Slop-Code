@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Vibe Studio Code (upstream checkout, toolchain and build output are never tracked)
+# Vibe Slop Code (upstream checkout, toolchain and build output are never tracked)
 vibe/vscode/
 vibe/.toolchain/
 vibe/.build/

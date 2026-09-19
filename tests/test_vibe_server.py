@@ -378,7 +378,7 @@ def test_refuses_an_unpatched_gulpfile(tmp_path: Path) -> None:
 
 def test_refuses_a_commit_the_packaged_client_does_not_carry(tmp_path: Path) -> None:
     fake_checkout(tmp_path)
-    app = tmp_path / "VSCode-darwin-arm64" / "Vibe Studio Code.app"
+    app = tmp_path / "VSCode-darwin-arm64" / "Vibe Slop Code.app"
     write(app / "Contents" / "Resources" / "app" / "product.json", json.dumps({"commit": OTHER_COMMIT}))
     path, log = fake_tools(tmp_path)
     proc = run(BUILD, PATH=path, **build_env(tmp_path))
@@ -491,7 +491,7 @@ def test_verify_refuses_the_wrong_commit(server: Server) -> None:
 
 
 def test_verify_refuses_a_commit_the_packaged_client_does_not_carry(server: Server, tmp_path: Path) -> None:
-    app = tmp_path / "Vibe Studio Code.app"
+    app = tmp_path / "Vibe Slop Code.app"
     write(app / "Contents" / "Resources" / "app" / "product.json", json.dumps({"commit": OTHER_COMMIT}))
     proc = server.verify(VIBE_APP=str(app))
     assert proc.returncode != 0

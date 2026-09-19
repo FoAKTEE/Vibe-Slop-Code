@@ -1,5 +1,5 @@
 diff --git a/product.json b/product.json
-index 15f5796e3ac4d41e70df088ea29716626e369273..0c98753dee62022ed7773a6ccda80109a005ba90 100644
+index 15f5796e3ac4d41e70df088ea29716626e369273..65109c6e1c91e300a2598ca74ea9d08f1c36bd8a 100644
 --- a/product.json
 +++ b/product.json
 @@ -1,39 +1,48 @@
@@ -11,7 +11,7 @@ index 15f5796e3ac4d41e70df088ea29716626e369273..0c98753dee62022ed7773a6ccda80109
 -	"sharedDataFolderName": ".vscode-oss-shared",
 -	"win32MutexName": "vscodeoss",
 +	"nameShort": "Vibe",
-+	"nameLong": "Vibe Studio Code",
++	"nameLong": "Vibe Slop Code",
 +	"applicationName": "vibe",
 +	"dataFolderName": ".vibe",
 +	"sharedDataFolderName": ".vibe-shared",
@@ -31,8 +31,8 @@ index 15f5796e3ac4d41e70df088ea29716626e369273..0c98753dee62022ed7773a6ccda80109
 +	"serverApplicationName": "vibe-server",
 +	"serverDataFolderName": ".vibe-server",
 +	"tunnelApplicationName": "vibe-tunnel",
-+	"win32DirName": "Vibe Studio Code",
-+	"win32NameVersion": "Vibe Studio Code",
++	"win32DirName": "Vibe Slop Code",
++	"win32NameVersion": "Vibe Slop Code",
 +	"win32RegValueName": "VibeStudioCode",
  	"win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}",
  	"win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}",
@@ -44,7 +44,7 @@ index 15f5796e3ac4d41e70df088ea29716626e369273..0c98753dee62022ed7773a6ccda80109
 -	"win32TunnelMutex": "vscodeoss-tunnel",
 -	"darwinBundleIdentifier": "com.visualstudio.code.oss",
 +	"win32AppUserModelId": "Chandra.VibeStudioCode",
-+	"win32ShellNameShort": "V&ibe Studio Code",
++	"win32ShellNameShort": "V&ibe Slop Code",
 +	"win32TunnelServiceMutex": "vibe-tunnelservice",
 +	"win32TunnelMutex": "vibe-tunnel",
 +	"darwinBundleIdentifier": "dev.chandra.vibe",

@@ -1,4 +1,4 @@
-# Vibe Studio Code
+# Vibe Slop Code
 
 `vibe` is a patch-level fork of VS Code (Code - OSS) that adds a workspace bar
 (hosts × workspaces in one frame) and a built-in Chandra workflow-graph view. The
@@ -54,7 +54,7 @@ commit check. The roundtrip is covered by `tests/test_vibe_scaffold.py`.
 `package.sh` maps the host to upstream's gulp task — `--print-task` prints the task and
 builds nothing — and takes minutes, not seconds. Upstream hard-codes the output folder
 next to the checkout, so the app lands in `vibe/VSCode-<platform>-<arch>/` (e.g.
-`VSCode-darwin-arm64/Vibe Studio Code.app`, ~1.4 GB, gitignored), with the built-in
+`VSCode-darwin-arm64/Vibe Slop Code.app`, ~1.4 GB, gitignored), with the built-in
 `vibe-chandra` extension inside and the bundled CLI at `Contents/Resources/app/bin/code`
 — the name upstream fixes on darwin.
 
@@ -67,8 +67,11 @@ the bundled CLI's version/commit against `upstream.json`. One `ok:` line per che
 is never used. `vibe --vibe-which` names the backend it resolves to — the packaged app
 when there is one, else the dev build. When several `VSCode-<platform>-<arch>*` folders
 sit side by side, the newest bundle wins (`--vibe-which` lists the rest as `candidates:`,
-`package.sh` names them, and neither deletes anything). To undo: `install-cli.sh
---uninstall` removes the symlink, and `rm -rf vibe/VSCode-*` removes the app.
+`package.sh` names them, and neither deletes anything). A bundle under the app's previous
+long name is listed last, after every bundle under the current one: renaming the app
+renames nothing on disk, so the last package keeps working until the next one. To undo:
+`install-cli.sh --uninstall` removes the symlink, and `rm -rf vibe/VSCode-*` removes
+the app.
 
 ## Remote server
 

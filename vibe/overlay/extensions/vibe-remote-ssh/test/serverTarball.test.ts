@@ -63,13 +63,13 @@ test('getTarballSearchPaths: setting, environment, next to the application, user
 	assert.deepEqual(getTarballSearchPaths({
 		setting: '~/my/servers',
 		envDir: '/env/servers',
-		appRoot: '/Applications/Vibe Studio Code.app/Contents/Resources/app',
+		appRoot: '/Applications/Vibe Slop Code.app/Contents/Resources/app',
 		homeDir: '/Users/me',
 		isDevBuild: false
 	}), [
 		'/Users/me/my/servers',
 		'/env/servers',
-		'/Applications/Vibe Studio Code.app/Contents/Resources/server',
+		'/Applications/Vibe Slop Code.app/Contents/Resources/server',
 		'/Users/me/.vibe/servers'
 	]);
 });
@@ -78,13 +78,13 @@ test('getTarballSearchPaths: a packaged application inside its build tree finds 
 	const paths = getTarballSearchPaths({
 		setting: '',
 		envDir: undefined,
-		appRoot: '/repo/vibe/VSCode-darwin-arm64/Vibe Studio Code.app/Contents/Resources/app',
+		appRoot: '/repo/vibe/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/app',
 		homeDir: '/Users/me',
 		isDevBuild: false
 	});
 
 	assert.deepEqual(paths, [
-		'/repo/vibe/VSCode-darwin-arm64/Vibe Studio Code.app/Contents/Resources/server',
+		'/repo/vibe/VSCode-darwin-arm64/Vibe Slop Code.app/Contents/Resources/server',
 		'/Users/me/.vibe/servers',
 		'/repo/vibe/.build/server'
 	]);

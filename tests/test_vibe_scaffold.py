@@ -138,7 +138,7 @@ class World:
         layout = dev / "src/vs/workbench/browser/layout.ts"
         layout.write_text(layout.read_text().replace("line6 = 6", "line6 = 66")
                           + "export const workspaceBar = true;\n")
-        (dev / "product.json").write_text('{\n\t"nameShort": "Vibe",\n\t"nameLong": "Vibe Studio Code"\n}\n')
+        (dev / "product.json").write_text('{\n\t"nameShort": "Vibe",\n\t"nameLong": "Vibe Slop Code"\n}\n')
         (dev / "src/vs/base/common/obsolete.ts").unlink()
         (dev / "resources/icon.bin").write_bytes(bytes(reversed(range(256))) * 3)
         (dev / "scripts/lint.sh").chmod(0o755)

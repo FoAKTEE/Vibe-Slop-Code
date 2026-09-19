@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 #
-# vibe — the Vibe Studio Code command (the `code` of this fork).
+# vibe — the Vibe Slop Code command (the `code` of this fork).
 #
 # Backend resolution, first hit wins:
 #   1. $VIBE_APP                                 (explicit override, must exist)
-#   2. /Applications/Vibe Studio Code.app        (installed)
+#   2. /Applications/Vibe Slop Code.app          (installed)
 #   3. packaged build: vibe/.build/… or the checkout's sibling VSCode-darwin-*
 #      — the NEWEST of them, never the one the glob happens to name first
 #   4. dev build: vibe/vscode/scripts/code.sh    (with the pinned toolchain)
 #
+# Steps 2 and 3 also look for the name the app carried before the rename: renaming
+# the app renames nothing on disk, so the bundle a previous package.sh wrote keeps
+# working until the next one. The current name is preferred over it — a bundle under
+# the current nameLong is by construction the one built after the rename — and age
+# only ever separates bundles of the same name.
+#
 # `vibe --vibe-which` prints the chosen backend and exits without launching; with
-# a `candidates:` line naming every packaged bundle of step 3, newest first.
+# a `candidates:` line naming every packaged bundle of step 3, in that same order.
 # Compatible with the bash 3.2 that ships with macOS.
 
 set -u
 
-APP_NAME="Vibe Studio Code.app"
+APP_NAME="Vibe Slop Code.app"
+APP_NAME_PREVIOUS="Vibe Studio Code.app"
 EXE_NAME="Vibe"
 
 # Resolve our own real location through symlinks (no `readlink -f` on macOS).
@@ -114,23 +121,32 @@ fi
 
 # 2. installed app
 if [ -z "$BACKEND" ]; then
-	resolve_app "/Applications/$APP_NAME" || true
+	for name in "$APP_NAME" "$APP_NAME_PREVIOUS"; do
+		resolve_app "/Applications/$name" && break
+	done
 fi
 
 # 3. locally packaged app (gulp vscode-darwin-<arch> writes next to the checkout).
 # Several can sit side by side — a fresh package next to a copy kept under another name
-# — and the glob order says nothing about their age, so the newest one wins.
+# — and the glob order says nothing about their age, so the newest one wins. Bundles of
+# the previous name are sorted among themselves and appended, so they are only ever
+# reached when there is no bundle under the current one.
 CANDIDATES=""
 if [ -z "$BACKEND" ]; then
-	for candidate in \
-		"$VIBE_ROOT/.build/$APP_NAME" \
-		"$VIBE_ROOT/.build"/VSCode-darwin-*/"$APP_NAME" \
-		"$VIBE_ROOT"/VSCode-darwin-*/"$APP_NAME"
-	do
-		app_target "$candidate" > /dev/null && CANDIDATES="$CANDIDATES$candidate
+	for name in "$APP_NAME" "$APP_NAME_PREVIOUS"; do
+		GROUP=""
+		for candidate in \
+			"$VIBE_ROOT/.build/$name" \
+			"$VIBE_ROOT/.build"/VSCode-darwin-*/"$name" \
+			"$VIBE_ROOT"/VSCode-darwin-*/"$name"
+		do
+			app_target "$candidate" > /dev/null && GROUP="$GROUP$candidate
+"
+		done
+		GROUP="$(newest_first "$GROUP")"
+		[ -n "$GROUP" ] && CANDIDATES="$CANDIDATES$GROUP
 "
 	done
-	CANDIDATES="$(newest_first "$CANDIDATES")"
 	while IFS= read -r candidate; do
 		[ -n "$candidate" ] && resolve_app "$candidate" && break
 	done <<-EOF
@@ -144,7 +160,7 @@ if [ -z "$BACKEND" ]; then
 		BACKEND="dev"
 		TARGET="$CHECKOUT/scripts/code.sh"
 	else
-		echo "vibe: no Vibe Studio Code found." >&2
+		echo "vibe: no Vibe Slop Code found." >&2
 		echo "vibe: looked for an app bundle (\$VIBE_APP, /Applications, $VIBE_ROOT)" >&2
 		echo "vibe: and for a dev checkout at $CHECKOUT" >&2
 		exit 1

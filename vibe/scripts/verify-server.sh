@@ -12,7 +12,10 @@
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
-APP_NAME="Vibe Studio Code.app"
+APP_NAME="Vibe Slop Code.app"
+# The name the app carried before the rename: a packaged tree keeps it until the next
+# package.sh, and its commit is what the handshake compares against either way.
+APP_NAME_PREVIOUS="Vibe Studio Code.app"
 # The newest glibc that what the server process loads (node, *.node) may need. 2.28 is the
 # floor of the official Node 24 builds the server ships (RHEL 8 and later, Debian 10,
 # Ubuntu 18.10): the server cannot start below it anyway, and a native module that needs
@@ -140,7 +143,8 @@ done
 # The handshake compares this commit with the client's, so check the client that is here.
 APP="${VIBE_APP:-}"
 if [ -z "$APP" ]; then
-	for candidate in "$VIBE_ROOT/VSCode-darwin-arm64/$APP_NAME" "$VIBE_ROOT/VSCode-darwin-x64/$APP_NAME"; do
+	for candidate in "$VIBE_ROOT/VSCode-darwin-arm64/$APP_NAME" "$VIBE_ROOT/VSCode-darwin-x64/$APP_NAME" \
+		"$VIBE_ROOT/VSCode-darwin-arm64/$APP_NAME_PREVIOUS" "$VIBE_ROOT/VSCode-darwin-x64/$APP_NAME_PREVIOUS"; do
 		if [ -d "$candidate" ]; then
 			APP="$candidate"
 			break

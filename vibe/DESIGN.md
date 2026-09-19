@@ -1,6 +1,6 @@
-# Vibe Studio Code — design record
+# Vibe Slop Code — design record
 
-Source prompt: `progress/prompt/init.md`. Vibe Studio Code (`vibe`) is a patch-level
+Source prompt: `progress/prompt/init.md`. Vibe Slop Code (`vibe`) is a patch-level
 fork of VS Code (Code - OSS) that folds two Chandra needs into the editor while
 staying as close to upstream as possible.
 
@@ -80,7 +80,7 @@ extension reads the same ledgers, so the two can never disagree about state.
 
 ## 3. Branding + CLI
 
-`product.json` patch: nameShort `Vibe`, nameLong `Vibe Studio Code`, applicationName
+`product.json` patch: nameShort `Vibe`, nameLong `Vibe Slop Code`, applicationName
 `vibe`, dataFolderName `.vibe`, urlProtocol `vibe`, bundle id `dev.chandra.vibe`,
 Open VSX gallery. `vibe/bin/vibe` launches the packaged app if present, else the dev
 build; `scripts/install-cli.sh` symlinks it into a user-writable bin dir. `code` is
@@ -142,6 +142,11 @@ product's own idea drawn small: a directed hypergraph of **five rectangular node
 one AND-join (two sources meet in a junction, one arrow continues), readable at 16 px.
 Source of truth is `vibe/branding/icon.svg`; `vibe/scripts/make-icon.sh` renders the
 platform files (`.icns`, `.png`, `.ico`) deterministically into the checkout.
+
+Renaming the app renames nothing on disk, so `bin/vibe` and `verify-package.sh` also look
+for the previous long name, after the current one — only a bundle built after the rename
+can carry the current one — and the app packaged before it keeps launching until the next
+`package.sh`. Nothing is deleted or moved.
 
 ## 8. Agents (activity bar) — which agent has finished, which has not
 

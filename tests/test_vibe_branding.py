@@ -1,4 +1,4 @@
-"""Branding + CLI for Vibe Studio Code.
+"""Branding + CLI for Vibe Slop Code.
 
 Three things are checked here, all of them cheap and hermetic:
 
@@ -7,10 +7,11 @@ Three things are checked here, all of them cheap and hermetic:
     throwaway `VIBE_BIN_DIR`, never a real system directory.
   * `vibe --vibe-which` resolves its own location THROUGH a symlink (macOS has
     no `readlink -f`), reports the dev backend of the root it lands in, picks
-    the newest of the packaged bundles it finds, and honours a `$VIBE_APP`
-    override pointed at a fake `.app` bundle. The dev cases run against a
-    throwaway root: next to the real checkout a packaged bundle may exist, and
-    it legitimately wins over the dev build.
+    the newest of the packaged bundles it finds, still finds a bundle left
+    under the previous long name, and honours a `$VIBE_APP` override pointed at
+    a fake `.app` bundle. The dev cases run against a throwaway root: next to
+    the real checkout a packaged bundle may exist, and it legitimately wins over
+    the dev build.
   * `vibe/vscode/product.json` — only when the gitignored upstream checkout is
     present — carries the Vibe identity keys and the Open VSX gallery.
 """
@@ -30,7 +31,13 @@ BIN_VIBE = VIBE / "bin" / "vibe"
 INSTALL_CLI = VIBE / "scripts" / "install-cli.sh"
 PRODUCT_JSON = VIBE / "vscode" / "product.json"
 
-APP_NAME = "Vibe Studio Code.app"
+APP_NAME = "Vibe Slop Code.app"
+# The bundle name before the rename. A rename touches product.json, not the 1.4 GB tree
+# a previous package.sh wrote, so `vibe` has to keep finding that one too.
+LEGACY_APP_NAME = "Vibe Studio Code.app"
+# A bundle installed under either name legitimately wins over anything a test builds.
+INSTALLED = [name for name in (APP_NAME, LEGACY_APP_NAME) if Path(f"/Applications/{name}").exists()]
+INSTALLED_REASON = "a real /Applications bundle would legitimately win"
 # The date the darwin packaging task stamps the files it copies with: every build
 # writes the same one, so no file inside a bundle says when the bundle was made.
 PACKAGED_EPOCH = 315532800  # 1980-01-01
@@ -45,11 +52,11 @@ def run(cmd: list[str], env: dict[str, str] | None = None,
                           cwd=str(cwd or REPO_ROOT), env={**base, **(env or {})})
 
 
-def make_fake_app(root: Path) -> Path:
+def make_fake_app(root: Path, name: str = APP_NAME) -> Path:
     """A stand-in for a packaged bundle: the darwin gulp task ships the CLI at
     `Contents/Resources/app/bin/code` (a fixed name, not `applicationName`) and
     stamps `Contents/Info.plist` with the same fixed date in every build."""
-    app = root / APP_NAME
+    app = root / name
     cli = app / "Contents" / "Resources" / "app" / "bin" / "code"
     cli.parent.mkdir(parents=True)
     cli.write_text("#!/usr/bin/env bash\necho fake-app-cli \"$@\"\n", encoding="utf-8")
@@ -60,23 +67,34 @@ def make_fake_app(root: Path) -> Path:
     return app
 
 
-def make_packaged_root(root: Path, bundles: dict[str, int]) -> Path:
-    """A vibe root holding `bin/vibe` and one packaged bundle per folder name, each
-    aged by the mtime of its `Contents` — the only thing that differs between two
-    builds, since the files inside carry the packaging task's fixed date."""
+def make_vibe_root(root: Path) -> Path:
+    """A vibe root holding `bin/vibe` and nothing else."""
     (root / "bin").mkdir(parents=True)
     shutil.copy2(BIN_VIBE, root / "bin" / "vibe")
-    for name, when in bundles.items():
-        app = make_fake_app(root / name)
-        os.utime(app / "Contents", (when, when))
+    return root
+
+
+def make_bundle(root: Path, folder: str, when: int, name: str = APP_NAME) -> Path:
+    """One packaged bundle under `folder`, aged by the mtime of its `Contents` — the only
+    thing that differs between two builds, since the files inside carry the packaging
+    task's fixed date."""
+    app = make_fake_app(root / folder, name)
+    os.utime(app / "Contents", (when, when))
+    return app
+
+
+def make_packaged_root(root: Path, bundles: dict[str, int]) -> Path:
+    """A vibe root holding `bin/vibe` and one packaged bundle per folder name."""
+    make_vibe_root(root)
+    for folder, when in bundles.items():
+        make_bundle(root, folder, when)
     return root
 
 
 def make_dev_root(root: Path) -> Path:
     """A vibe root holding only `bin/vibe` and a stub checkout, so the dev backend is
     the one resolution has to find."""
-    (root / "bin").mkdir(parents=True)
-    shutil.copy2(BIN_VIBE, root / "bin" / "vibe")
+    make_vibe_root(root)
     code = root / "vscode" / "scripts" / "code.sh"
     code.parent.mkdir(parents=True)
     code.write_text('#!/usr/bin/env bash\nprintf "dev-code:%s\\n" "$@"\n', encoding="utf-8")
@@ -142,8 +160,7 @@ def test_which_through_symlink_chain(tmp_path: Path) -> None:
     assert fields["checkout"] == str(root / "vscode")
 
 
-@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
-                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 @pytest.mark.parametrize("newest", ["VSCode-darwin-arm64", "VSCode-darwin-arm64.next"])
 def test_which_picks_the_newest_packaged_bundle(tmp_path: Path, newest: str) -> None:
     """Two bundles side by side: age decides, never the order the glob happens to
@@ -157,8 +174,7 @@ def test_which_picks_the_newest_packaged_bundle(tmp_path: Path, newest: str) -> 
     assert fields["target"] == str(root / newest / APP_NAME / "Contents/Resources/app/bin/code")
 
 
-@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
-                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 def test_which_lists_the_candidates_newest_first(tmp_path: Path) -> None:
     """The bundles that lost are named too, so a stale one is visible."""
     root = make_packaged_root(tmp_path / "vibe", {"VSCode-darwin-arm64": OLDER,
@@ -169,8 +185,7 @@ def test_which_lists_the_candidates_newest_first(tmp_path: Path) -> None:
                       str(root / "VSCode-darwin-arm64" / APP_NAME)]
 
 
-@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
-                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 def test_which_resolves_a_tie_the_same_way_every_time(tmp_path: Path) -> None:
     root = make_packaged_root(tmp_path / "vibe", {"VSCode-darwin-arm64": OLDER,
                                                   "VSCode-darwin-arm64.next": OLDER})
@@ -178,6 +193,31 @@ def test_which_resolves_a_tie_the_same_way_every_time(tmp_path: Path) -> None:
     second = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
     assert first == second
     assert len(first["candidates"].split("|")) == 2
+
+
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
+def test_which_still_finds_a_bundle_under_the_previous_name(tmp_path: Path) -> None:
+    """Renaming the app renames nothing on disk: until the next package.sh the only
+    bundle there is has the old long name, and `vibe` must still launch it."""
+    root = make_vibe_root(tmp_path / "vibe")
+    app = make_bundle(root, "VSCode-darwin-arm64", OLDER, LEGACY_APP_NAME)
+    fields = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    assert fields["backend"] == "app"
+    assert fields["app"] == str(app)
+
+
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
+def test_which_prefers_the_current_name_over_the_previous_one(tmp_path: Path) -> None:
+    """Both names side by side, the old one left deliberately newer: the name decides
+    between them, because a bundle under the current `nameLong` is by construction the
+    one built after the rename. Age only ever separates bundles of the same name."""
+    root = make_vibe_root(tmp_path / "vibe")
+    current = make_bundle(root, "VSCode-darwin-arm64", OLDER)
+    previous = make_bundle(root, "VSCode-darwin-arm64", NEWER, LEGACY_APP_NAME)
+    fields = which_fields(run([str(root / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path))
+    assert fields["app"] == str(current)
+    listed = [part.strip() for part in fields["candidates"].split("|")]
+    assert listed == [str(current), str(previous)]
 
 
 def test_vibe_app_wins_over_a_newer_packaged_bundle(tmp_path: Path) -> None:
@@ -301,8 +341,7 @@ def test_uninstall_leaves_foreign_entry_alone(tmp_path: Path) -> None:
     assert (bin_dir / "vibe").read_text(encoding="utf-8") == "not ours\n"
 
 
-@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
-                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 def test_installed_symlink_resolves_to_our_root(tmp_path: Path) -> None:
     """End to end: install, then run the installed name. Whether the dev build or a
     packaged bundle answers depends on what has been built; the root must be ours."""
@@ -319,7 +358,7 @@ def test_installed_symlink_resolves_to_our_root(tmp_path: Path) -> None:
 
 IDENTITY = {
     "nameShort": "Vibe",
-    "nameLong": "Vibe Studio Code",
+    "nameLong": "Vibe Slop Code",
     "applicationName": "vibe",
     "dataFolderName": ".vibe",
     "sharedDataFolderName": ".vibe-shared",
@@ -393,14 +432,11 @@ def test_bundled_cli_name_is_documented() -> None:
     assert "Resources/app/bin" in BIN_VIBE.read_text(encoding="utf-8")
 
 
-@pytest.mark.skipif(Path(f"/Applications/{APP_NAME}").exists(),
-                    reason="a real /Applications bundle would legitimately win")
+@pytest.mark.skipif(bool(INSTALLED), reason=INSTALLED_REASON)
 def test_dev_backend_needs_a_checkout(tmp_path: Path) -> None:
     """With no checkout and no app anywhere, `vibe` must say so rather than
     silently exec'ing something else."""
-    fake_vibe = tmp_path / "vibe"
-    (fake_vibe / "bin").mkdir(parents=True)
-    shutil.copy2(BIN_VIBE, fake_vibe / "bin" / "vibe")
+    fake_vibe = make_vibe_root(tmp_path / "vibe")
     proc = run([str(fake_vibe / "bin" / "vibe"), "--vibe-which"], cwd=tmp_path)
     assert proc.returncode != 0
-    assert "Vibe Studio Code" in proc.stderr
+    assert "Vibe Slop Code" in proc.stderr

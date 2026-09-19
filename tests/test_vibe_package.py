@@ -1,4 +1,4 @@
-"""Packaging Vibe Studio Code: ``scripts/package.sh`` and ``scripts/verify-package.sh``.
+"""Packaging Vibe Slop Code: ``scripts/package.sh`` and ``scripts/verify-package.sh``.
 
 Nothing here builds anything. ``package.sh`` is a wrapper around upstream's gulp
 task, so only its task mapping and its refusals are exercised: ``--print-task``
@@ -30,7 +30,10 @@ SCRIPTS = VIBE / "scripts"
 PACKAGE = SCRIPTS / "package.sh"
 VERIFY = SCRIPTS / "verify-package.sh"
 
-APP_NAME = "Vibe Studio Code.app"
+APP_NAME = "Vibe Slop Code.app"
+# The bundle name before the rename: a packaged tree keeps it until the next package.sh.
+LEGACY_APP_NAME = "Vibe Studio Code.app"
+ARCH = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(platform.machine(), "")
 # macOS ships bash 3.2 at /bin/bash; run the scripts under it so compatibility is tested.
 BASH = "/bin/bash" if Path("/bin/bash").exists() else shutil.which("bash")
 PLISTBUDDY = Path("/usr/libexec/PlistBuddy")
@@ -43,7 +46,7 @@ GALLERY = {
 }
 PRODUCT = {
     "nameShort": "Vibe",
-    "nameLong": "Vibe Studio Code",
+    "nameLong": "Vibe Slop Code",
     "applicationName": "vibe",
     "dataFolderName": ".vibe",
     "darwinBundleIdentifier": "dev.chandra.vibe",
@@ -193,7 +196,7 @@ def fake_checkout(tmp: Path) -> Path:
     checkout = tmp / "vscode"
     write(checkout / "package.json", json.dumps({"version": FAKE_VERSION}))
     write(checkout / "node_modules" / ".keep", "")
-    write(checkout / "product.json", '{\n\t"nameLong": "Vibe Studio Code"\n}\n')
+    write(checkout / "product.json", '{\n\t"nameLong": "Vibe Slop Code"\n}\n')
     return checkout
 
 
@@ -236,7 +239,7 @@ class Bundle:
 
     def __init__(self, tmp: Path):
         self.tmp = tmp
-        self.app = tmp / "VSCode-darwin-arm64" / APP_NAME
+        self.app = tmp / f"VSCode-darwin-{ARCH}" / APP_NAME
         self.res = self.app / "Contents" / "Resources" / "app"
         self.plist = self.app / "Contents" / "Info.plist"
         self.product_json = self.res / "product.json"
@@ -296,6 +299,19 @@ def test_verify_accepts_a_good_bundle(bundle: Bundle) -> None:
     assert "dev.chandra.vibe" in proc.stdout
     assert FAKE_VERSION in proc.stdout and FAKE_COMMIT in proc.stdout
     assert snapshot(bundle.tmp) == before, "verify-package.sh must be read-only"
+
+
+def test_verify_finds_a_bundle_left_under_the_previous_name(bundle: Bundle) -> None:
+    """Renaming the app renames nothing on disk. With no $VIBE_APP the default location
+    must also see the tree a previous package.sh wrote, so the checks run on it (and say
+    what is stale) instead of reporting that there is no bundle at all."""
+    legacy = bundle.tmp / f"VSCode-darwin-{ARCH}" / LEGACY_APP_NAME
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    bundle.app.rename(legacy)
+    proc = run(VERIFY, VIBE_ROOT=str(bundle.tmp), VIBE_CHECKOUT=str(bundle.checkout),
+               VIBE_PIN=str(bundle.pin), VIBE_TOOLCHAIN=str(bundle.tmp / "no-toolchain"))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert str(legacy) in proc.stdout
 
 
 def test_verify_refuses_a_missing_bundle(bundle: Bundle) -> None:
@@ -401,13 +417,28 @@ def test_verify_takes_no_arguments(bundle: Bundle) -> None:
 
 # --------------------------------------------------------------------------- the real bundle
 
-ARCH = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(platform.machine(), "")
-REAL_APP = VIBE / f"VSCode-darwin-{ARCH}" / APP_NAME
+BUNDLES = VIBE / f"VSCode-darwin-{ARCH}"
+REAL_APP = next((BUNDLES / name for name in (APP_NAME, LEGACY_APP_NAME)
+                 if (BUNDLES / name).is_dir()), None)
+CHECKOUT_PRODUCT = VIBE / "vscode" / "product.json"
 
 
-@pytest.mark.skipif(not REAL_APP.is_dir(),
+def bundle_predates_product_json() -> bool:
+    """A change of identity lands in product.json first: the 1.4 GB tree keeps the name it
+    was built with until the next package.sh, and verify-package.sh is right to refuse it
+    meanwhile. The files inside a bundle carry the packaging task's fixed 1980 date, so
+    its age is the mtime of the `Contents` directory the task wrote."""
+    if not CHECKOUT_PRODUCT.is_file():
+        return False
+    return (REAL_APP / "Contents").stat().st_mtime < CHECKOUT_PRODUCT.stat().st_mtime
+
+
+@pytest.mark.skipif(REAL_APP is None,
                     reason="no packaged app (vibe/VSCode-* is gitignored; run scripts/package.sh)")
 def test_verify_the_real_packaged_app() -> None:
+    if bundle_predates_product_json():
+        pytest.skip(f"{REAL_APP.name} was packaged before the current "
+                    f"{CHECKOUT_PRODUCT.name} — re-run scripts/package.sh")
     proc = run(VERIFY)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "ok: identifier dev.chandra.vibe" in proc.stdout

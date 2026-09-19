@@ -6,7 +6,11 @@
 set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
-APP_NAME="Vibe Studio Code.app"
+APP_NAME="Vibe Slop Code.app"
+# The name the app carried before the rename. A packaged tree keeps it until the next
+# package.sh, so it is still found here — and then fails the nameLong check below, which
+# is the point: the bundle is stale, not missing.
+APP_NAME_PREVIOUS="Vibe Studio Code.app"
 
 [ $# -eq 0 ] || { echo "usage: verify-package.sh   (the app comes from \$VIBE_APP)" >&2; exit 2; }
 
@@ -31,10 +35,14 @@ command -v python3 > /dev/null || die "python3 is required to read the bundled J
 APP="${VIBE_APP:-}"
 if [ -z "$APP" ]; then
 	case "$(uname -m)" in
-		arm64|aarch64) APP="$VIBE_ROOT/VSCode-darwin-arm64/$APP_NAME" ;;
-		x86_64|amd64) APP="$VIBE_ROOT/VSCode-darwin-x64/$APP_NAME" ;;
+		arm64|aarch64) OUT="$VIBE_ROOT/VSCode-darwin-arm64" ;;
+		x86_64|amd64) OUT="$VIBE_ROOT/VSCode-darwin-x64" ;;
 		*) die "unknown machine $(uname -m) — point \$VIBE_APP at the bundle" ;;
 	esac
+	APP="$OUT/$APP_NAME"
+	if [ ! -d "$APP" ] && [ -d "$OUT/$APP_NAME_PREVIOUS" ]; then
+		APP="$OUT/$APP_NAME_PREVIOUS"
+	fi
 fi
 [ -d "$APP" ] || die "no app bundle at $APP — run scripts/package.sh first (or set \$VIBE_APP)"
 RES="$APP/Contents/Resources/app"
@@ -51,7 +59,7 @@ echo "ok: identifier $IDENTIFIER"
 # --- branding --------------------------------------------------------------- #
 PRODUCT="$RES/product.json"
 [ -f "$PRODUCT" ] || die "missing $PRODUCT"
-check_product nameLong "Vibe Studio Code"
+check_product nameLong "Vibe Slop Code"
 check_product applicationName "vibe"
 check_product extensionsGallery.serviceUrl "https://open-vsx.org/vscode/gallery"
 check_product extensionsGallery.itemUrl "https://open-vsx.org/vscode/item"
