@@ -174,3 +174,40 @@ Chandra skill so a mission can route a worker or a cross-model review through it
 bridge's state directory, browser profile and tokens are never read.
 
 DAG: `remote-anta → rename → icon`, `rename → agents → chatgpt-web`, all → `release`.
+
+## 10. The Codex Web GPT launcher inside Vibe (L1-hybrid)
+
+Request: "integrate the function and interface to vibe directly (Codex Web GPT launcher)".
+What the source says (upstream commit eaf4f09): the ChatGPT page the automation drives
+lives INSIDE the launcher's Electron process (a `WebContentsView` on the session
+partition `persist:codex-web-gpt-chatgpt`); the runtime attaches over a loopback CDP port
+and a token-protected control server advertised in a private descriptor; the daemon
+(port 17841) is a child of the launcher. Sign-in, smoke test, Install models, MCP connect
+and the feature toggles exist only behind the launcher's internal Electron IPC.
+
+Decision: **Vibe becomes the launcher's interface; the launcher stays as a hidden
+engine.** A native "ChatGPT Web" panel in `vibe-agents` mirrors the launcher's screens
+with the seams that really exist — Overview (`/healthz`, runtime version), Setup
+checklist (state native; the three account-touching steps hand off to the launcher
+window at the right screen), Models (`codex debug models`), Bridge (connect / pause the
+global Codex route through upstream's own journalled `route connect|disconnect`), Engine
+(start hidden, show window, quit), Doctor (`doctor --json`), cancel the active turn,
+Subagents protocol, the MCP / full-harness guide, and an activity log of Vibe's own
+redacted operations. Every operation with a consequence is an explicit click with the
+consequence stated (global route = ALL Codex traffic; smoke test = one real message;
+full harness = ChatGPT gets tool access to the repo). Nothing runs on its own except the
+prompt-free health probe; Vibe never reads the descriptor, tokens, the browser profile
+or the launcher's logs (they can contain prompts).
+
+Not done, on purpose: hosting the ChatGPT page in Vibe (L2) would mean porting ~7.5k
+lines of Electron-main host code, a second sign-in inside the editor, a loopback CDP
+endpoint (the cheap way, `--remote-debugging-port`, would expose the whole editor to
+every local process), and tracking an upstream that shipped 47 releases in 52 days.
+Vendoring the runtime (L3) is 30k lines + 150 MB of binaries. Both stay [FUTURE] until
+upstream offers an external control API.
+
+Everything is developed against a fake runtime CLI, a fake `/healthz` and fake
+executables; one sandboxed contract test may run the REAL binary's read-only commands
+with `HOME`, `--home` and `CODEX_HOME` all pointing at a temp dir.
+
+DAG: `chatgpt-web → cgw-core → cgw-panel → release-3`.
