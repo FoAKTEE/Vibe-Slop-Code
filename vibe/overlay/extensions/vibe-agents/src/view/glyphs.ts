@@ -2,6 +2,7 @@
 
 // The icons of the view: stroke paths on a 16x16 grid, drawn with the text colour they sit in. A webview has
 // no access to the icon font of the workbench, and the view shows state by shape as well as by colour.
+import type { StatusRow, StatusRowAction } from '../model/profiles.ts';
 import type { SessionState } from '../model/session.ts';
 import type { SessionAction } from '../protocol.ts';
 import type { GlyphName } from './cardModel.ts';
@@ -43,6 +44,17 @@ const STATE: Record<SessionState, string[]> = {
 	closed: ['M8 13.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z', 'M4.2 11.8l7.6-7.6'],
 };
 
+/** The shape of a status row: check, warning triangle, ring. */
+const ROW_STATE: Record<StatusRow['state'], string[]> = {
+	ok: ['M3 8.5l3.2 3.2L13 4.8'],
+	warning: ['M8 2.2L14.4 13.4H1.6z', 'M8 6.4v3.4', 'M8 11.5v.2'],
+	off: ['M8 12.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z'],
+};
+
+const ROW_ACTION: Record<NonNullable<StatusRowAction['icon']>, string[]> = {
+	refresh: ['M12.6 8a4.6 4.6 0 1 1-1.5-3.4', 'M11.5 1.8v3h-3'],
+};
+
 function icon(paths: readonly string[], className: string): SVGSVGElement {
 	return svg('svg', { viewBox: '0 0 16 16', class: `va-icon ${className}`, 'aria-hidden': 'true', focusable: 'false' }, ...paths.map(d => svg('path', { d })));
 }
@@ -61,4 +73,12 @@ export function toolbarGlyph(name: keyof typeof TOOLBAR): SVGSVGElement {
 
 export function stateGlyph(state: SessionState): SVGSVGElement {
 	return icon(STATE[state], `va-icon-state va-icon-${state}`);
+}
+
+export function rowStateGlyph(state: StatusRow['state']): SVGSVGElement {
+	return icon(ROW_STATE[state], `va-icon-row va-icon-row-${state}`);
+}
+
+export function rowActionGlyph(name: NonNullable<StatusRowAction['icon']>): SVGSVGElement {
+	return icon(ROW_ACTION[name], 'va-icon-action');
 }

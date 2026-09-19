@@ -29,7 +29,8 @@
       "supported": "limited",
       "description": "%capabilities.untrustedWorkspaces%",
       "restrictedConfigurations": [
-        "vibeAgents.profiles"
+        "vibeAgents.profiles",
+        "vibeAgents.chatgptWeb.enabled"
       ]
     }
   },
@@ -81,8 +82,48 @@
         "title": "%command.focusNext%",
         "category": "Agents",
         "icon": "$(bell)"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.selectModel",
+        "title": "%command.chatgptWeb.selectModel%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.openLauncher",
+        "title": "%command.chatgptWeb.openLauncher%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.openProjectPage",
+        "title": "%command.chatgptWeb.openProjectPage%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.recheck",
+        "title": "%command.chatgptWeb.recheck%",
+        "category": "Agents"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "vibeAgents.chatgptWeb.selectModel",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.openLauncher",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.openProjectPage",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.recheck",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        }
+      ]
+    },
     "configuration": {
       "title": "Agents",
       "properties": {
@@ -168,6 +209,18 @@
           "default": "attention",
           "scope": "window",
           "description": "%config.notify%"
+        },
+        "vibeAgents.chatgptWeb.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "%config.chatgptWeb.enabled%"
+        },
+        "vibeAgents.chatgptWeb.codexConfigPath": {
+          "type": "string",
+          "default": "~/.codex/config.toml",
+          "scope": "machine",
+          "markdownDescription": "%config.chatgptWeb.codexConfigPath%"
         }
       }
     }

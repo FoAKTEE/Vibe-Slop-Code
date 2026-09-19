@@ -9,6 +9,10 @@
 	"command.adoptTerminal": "Adopt Terminal...",
 	"command.clearFinished": "Clear Finished",
 	"command.focusNext": "Focus the Agent That Needs Me",
+	"command.chatgptWeb.selectModel": "Select ChatGPT Web Model...",
+	"command.chatgptWeb.openLauncher": "Open the ChatGPT Web Launcher (Codex Web GPT)",
+	"command.chatgptWeb.openProjectPage": "Open the ChatGPT Web Project Page (codex-chatgpt-web)",
+	"command.chatgptWeb.recheck": "Re-check ChatGPT Web",
 	"config.profiles": "Agents that can be started from the **Agents** view, in addition to Claude Code (`claude`) and Codex (`codex`). A profile with the id `claude` or `codex` replaces the built-in one.",
 	"config.profiles.id": "Identifier of the profile.",
 	"config.profiles.label": "Name of the agent as the view shows it.",
@@ -23,5 +27,7 @@
 	"config.notify": "Controls the notification when an agent starts to wait for you, finishes or fails.",
 	"config.notify.off": "No notifications.",
 	"config.notify.attention": "Notify unless the terminal of the agent is the active terminal of the focused window.",
-	"config.notify.all": "Always notify."
+	"config.notify.all": "Always notify.",
+	"config.chatgptWeb.enabled": "Offers **ChatGPT Web (via Codex)** in the **Agents** view of local windows: an agent that runs `codex -m chatgpt-web/<model>`, and a row that tells whether the launcher of [codex-chatgpt-web](https://github.com/miuuyy/codex-chatgpt-web), Codex Web GPT, is ready. It is unofficial browser automation of your own ChatGPT account: the terms and the message allowance of ChatGPT apply. Setting it up is done in the launcher, and its Install models routes **all** Codex traffic of this machine through the launcher.",
+	"config.chatgptWeb.codexConfigPath": "The config file of Codex, of which only the top-level `openai_base_url` is read, to find the port of the launcher. The default follows the environment variable `CODEX_HOME`, as Codex does."
 }

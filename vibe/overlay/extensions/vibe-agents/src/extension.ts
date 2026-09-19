@@ -3,8 +3,10 @@
 // The wiring: settings, commands, the Sessions view, the badge, the status bar, notifications and what the
 // window tells the workspace bar. What terminals do is in ./host/terminals, every decision in ./model.
 import * as vscode from 'vscode';
+import { ChatGptWebBridge, nodeSystem, type BridgeUi } from './host/chatgptWeb.ts';
 import { renderPage } from './host/page.ts';
 import { AgentTerminals } from './host/terminals.ts';
+import { COMMANDS as CHATGPT_WEB_COMMANDS } from './model/chatgptWeb.ts';
 import { DEFAULT_ADOPT_PATTERN, ProfileRegistry, parseUserProfiles, type AgentProfile, type ProfileProvider, type Registration, type StatusRow, type StatusRowProvider } from './model/profiles.ts';
 import { SessionRegistry, type SessionChange } from './model/registry.ts';
 import type { Session } from './model/session.ts';
@@ -15,6 +17,8 @@ const SECTION = 'vibeAgents';
 const SESSIONS_VIEW = 'vibeAgents.sessions';
 const BADGE_VIEW = 'vibeAgents.attention';
 const SET_WINDOW_STATUS_COMMAND = '_workbench.workspaceBar.setWindowStatus';
+const CHATGPT_WEB_SECTION = `${SECTION}.chatgptWeb`;
+const CHATGPT_WEB_MODEL_KEY = 'vibeAgents.chatgptWeb.model';
 
 /** What other extensions get from this one: the seam for profiles and status rows that are not its business. */
 export interface VibeAgentsApi {
@@ -87,10 +91,14 @@ class Controller implements vscode.Disposable {
 
 	start(): void {
 		this.loadProfiles();
+		const chatGptWeb = this.createChatGptWeb();
 		this.disposables.push(
 			vscode.workspace.onDidChangeConfiguration(event => {
 				if (event.affectsConfiguration(`${SECTION}.profiles`)) {
 					this.loadProfiles();
+				}
+				if (event.affectsConfiguration(CHATGPT_WEB_SECTION)) {
+					chatGptWeb.configurationChanged();
 				}
 			}),
 			this.profiles.onDidChange(() => this.refreshSoon(true)),
@@ -131,9 +139,64 @@ class Controller implements vscode.Disposable {
 				{ placeHolder: vscode.l10n.t("Agent to start in a new terminal") });
 			profile = picked?.profile;
 		}
-		if (profile) {
-			await this.terminals.start(profile);
+		// The provider of a profile has a say: it may ask something first, and it may refuse, which it tells itself
+		const prepared = profile && await this.prepare(profile, undefined);
+		if (prepared) {
+			await this.terminals.start(prepared);
 		}
+	}
+
+	private async prepare(profile: AgentProfile, restartOf: string | undefined): Promise<AgentProfile | undefined> {
+		try {
+			return await this.profiles.prepareLaunch(profile, restartOf);
+		} catch (error) {
+			this.log.error(`${profile.id}: not started, its provider failed`, error);
+			return undefined;
+		}
+	}
+
+	private async restart(id: string): Promise<void> {
+		const session = this.registry.get(id);
+		const profile = this.profiles.get(session?.profileId);
+		const prepared = session && profile ? await this.prepare(profile, session.command) : profile;
+		if (session && (prepared || !profile)) {
+			await this.terminals.restart(id, prepared);
+		}
+	}
+
+	/**
+	 * ChatGPT Web through Codex: a profile and a status row of this window, see ./host/chatgptWeb. What is asked
+	 * here is `vscode.env.remoteName`, the remote of the window: this extension runs in the local extension host
+	 * of a remote window too (extensionKind ui), and the terminals it starts there run on the remote host.
+	 */
+	private createChatGptWeb(): ChatGptWebBridge {
+		const settings = () => vscode.workspace.getConfiguration(CHATGPT_WEB_SECTION);
+		const ui: BridgeUi = {
+			remoteName: vscode.env.remoteName,
+			isEnabled: () => settings().get<boolean>('enabled') !== false,
+			codexConfigPath: () => settings().get<string>('codexConfigPath'),
+			storedModel: () => this.context.globalState.get<string>(CHATGPT_WEB_MODEL_KEY),
+			storeModel: slug => this.context.globalState.update(CHATGPT_WEB_MODEL_KEY, slug),
+			pickModel: items => vscode.window.showQuickPick(
+				items.map(item => ({ label: item.label, description: item.current ? vscode.l10n.t("{0} (current)", item.slug) : item.slug, detail: item.description, slug: item.slug })),
+				{ title: vscode.l10n.t("ChatGPT Web Model"), placeHolder: vscode.l10n.t("The model fixes the effort. Which ones there are depends on the ChatGPT plan."), matchOnDescription: true },
+			).then(picked => picked?.slug),
+			notify: (severity, message, buttons) => (severity === 'warning' ? vscode.window.showWarningMessage : vscode.window.showInformationMessage)(message, ...buttons),
+			openExternal: url => { vscode.env.openExternal(vscode.Uri.parse(url)); },
+			log: message => this.log.info(message),
+		};
+		const bridge = new ChatGptWebBridge(ui, nodeSystem(), () => this.profiles.refresh());
+		this.disposables.push(
+			new vscode.Disposable(() => bridge.dispose()),
+			this.profiles.registerProvider(bridge),
+			this.profiles.registerStatusRowProvider(bridge),
+			vscode.window.onDidChangeWindowState(state => state.focused && bridge.windowFocused()),
+			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.selectModel, () => bridge.selectModel()),
+			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.openLauncher, () => bridge.openLauncher()),
+			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.openProjectPage, () => bridge.openProjectPage()),
+			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.recheck, () => bridge.recheck()),
+		);
+		return bridge;
 	}
 
 	//#endregion
@@ -257,10 +320,12 @@ class Controller implements vscode.Disposable {
 
 		this.view = view;
 		this.isViewReady = false;
+		this.profiles.setRowsVisible(view.visible);
 		const asset = (name: string): string => webview.asWebviewUri(vscode.Uri.joinPath(media, name)).toString();
 		const listeners = vscode.Disposable.from(
 			webview.onDidReceiveMessage((message: HostOutbound) => this.onMessage(message)),
 			view.onDidChangeVisibility(() => {
+				this.profiles.setRowsVisible(view.visible);
 				if (view.visible) {
 					this.refreshSoon(true);
 				}
@@ -270,6 +335,7 @@ class Controller implements vscode.Disposable {
 				if (this.view === view) {
 					this.view = undefined;
 					this.isViewReady = false;
+					this.profiles.setRowsVisible(false);
 				}
 			}),
 		);
@@ -295,7 +361,8 @@ class Controller implements vscode.Disposable {
 				this.onSessionAction(message.action, message.id);
 				break;
 			case 'row': {
-				const action = this.rows.find(row => row.id === message.id)?.action;
+				const row = this.rows.find(candidate => candidate.id === message.id);
+				const action = message.secondary === undefined ? row?.action : row?.secondaryActions?.[message.secondary];
 				if (action) {
 					vscode.commands.executeCommand(action.command, ...(action.args ?? []));
 				}
@@ -308,7 +375,7 @@ class Controller implements vscode.Disposable {
 		switch (action) {
 			case 'focus': this.terminals.focus(id); break;
 			case 'stop': this.terminals.stop(id); break;
-			case 'restart': this.terminals.restart(id); break;
+			case 'restart': this.restart(id); break;
 			case 'dismiss': this.terminals.dismiss(id); break;
 		}
 	}

@@ -37,4 +37,5 @@ export type HostOutbound =
 	| { type: 'adopt' }
 	| { type: 'clear' }
 	| { type: 'session'; action: SessionAction; id: string }
-	| { type: 'row'; id: string };
+	/** The action of a status row, or the one of its secondary actions at the index `secondary`. */
+	| { type: 'row'; id: string; secondary?: number };

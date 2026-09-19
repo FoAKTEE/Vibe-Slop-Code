@@ -116,10 +116,29 @@ export interface Registration {
 	dispose(): void;
 }
 
+export interface LaunchRequest {
+	profile: AgentProfile;
+	/** A session is started again: its command line. */
+	restartOf?: string;
+}
+
 /** The seam for profiles that do not come from settings, such as the ones of a bridge that another extension knows. */
 export interface ProfileProvider {
 	readonly id: string;
 	provideProfiles(): readonly AgentProfile[];
+	/**
+	 * Asked before one of its profiles starts. Resolves with the profile to start, with what the provider
+	 * asked the user filled in, or with nothing when it must not start: the provider told the user why.
+	 */
+	prepareLaunch?(request: LaunchRequest): Promise<AgentProfile | undefined>;
+}
+
+export interface StatusRowAction {
+	label: string;
+	command: string;
+	args?: unknown[];
+	/** Drawn as an icon, with the label as its name. */
+	icon?: 'refresh';
 }
 
 /** A row of the view that is no session: the state of something agents depend on, with one action. */
@@ -127,13 +146,20 @@ export interface StatusRow {
 	id: string;
 	label: string;
 	detail?: string;
+	/** The whole story, for the pointer that rests on the row. */
+	tooltip?: string;
+	/** `ok` is quiet, `warning` asks for attention. */
 	state: 'ok' | 'warning' | 'off';
-	action?: { label: string; command: string; args?: unknown[] };
+	action?: StatusRowAction;
+	/** What else can be done, such as asking again. */
+	secondaryActions?: StatusRowAction[];
 }
 
 export interface StatusRowProvider {
 	readonly id: string;
 	provideStatusRows(): readonly StatusRow[] | Promise<readonly StatusRow[]>;
+	/** The rows are on screen, or no longer. A provider that polls does so only while they are. */
+	setVisible?(visible: boolean): void;
 }
 
 /** All profiles: the built-in ones, the ones of the user (same id: replaces a built-in one) and provided ones. */
@@ -143,25 +169,40 @@ export class ProfileRegistry {
 	private readonly providers: ProfileProvider[] = [];
 	private readonly statusRowProviders: StatusRowProvider[] = [];
 	private readonly listeners = new Set<() => void>();
+	private rowsVisible = false;
 
 	get profiles(): AgentProfile[] {
-		const profiles = BUILTIN_PROFILES.map(builtin => this.userProfiles.find(profile => profile.id === builtin.id) ?? builtin);
-		const add = (candidates: readonly AgentProfile[]) => {
+		return this.collect().map(entry => entry.profile);
+	}
+
+	private collect(): { profile: AgentProfile; provider: ProfileProvider | undefined }[] {
+		const entries: { profile: AgentProfile; provider: ProfileProvider | undefined }[] = [];
+		const add = (candidates: readonly AgentProfile[], provider: ProfileProvider | undefined) => {
 			for (const profile of candidates) {
-				if (!profiles.some(other => other.id === profile.id)) {
-					profiles.push(profile);
+				if (!entries.some(other => other.profile.id === profile.id)) {
+					entries.push({ profile, provider });
 				}
 			}
 		};
-		add(this.userProfiles);
+		add(BUILTIN_PROFILES.map(builtin => this.userProfiles.find(profile => profile.id === builtin.id) ?? builtin), undefined);
+		add(this.userProfiles, undefined);
 		for (const provider of this.providers) {
 			try {
-				add(provider.provideProfiles());
+				add(provider.provideProfiles(), provider);
 			} catch {
 				// a provider that fails provides nothing
 			}
 		}
-		return profiles;
+		return entries;
+	}
+
+	/**
+	 * What to start when `profile` is asked for: the profile itself, or what the provider it comes from made
+	 * of it. Nothing: the provider refused, and told the user.
+	 */
+	async prepareLaunch(profile: AgentProfile, restartOf?: string): Promise<AgentProfile | undefined> {
+		const provider = this.collect().find(entry => entry.profile.id === profile.id)?.provider;
+		return provider?.prepareLaunch ? provider.prepareLaunch({ profile, restartOf }) : profile;
 	}
 
 	get(id: string | undefined): AgentProfile | undefined {
@@ -178,7 +219,19 @@ export class ProfileRegistry {
 	}
 
 	registerStatusRowProvider(provider: StatusRowProvider): Registration {
+		provider.setVisible?.(this.rowsVisible);
 		return this.register(this.statusRowProviders, provider);
+	}
+
+	/** Whether the view that shows the rows is on screen. */
+	setRowsVisible(visible: boolean): void {
+		if (visible === this.rowsVisible) {
+			return;
+		}
+		this.rowsVisible = visible;
+		for (const provider of [...this.statusRowProviders]) {
+			provider.setVisible?.(visible);
+		}
 	}
 
 	/** Tells that the profiles or the status rows of a provider changed. */
@@ -272,8 +325,9 @@ export interface CommandLineMatch {
 }
 
 /**
- * Whether a command line that started in a terminal is an agent: the profiles are asked first,
- * in their order, then the default pattern. An empty or broken pattern matches nothing.
+ * Whether a command line that started in a terminal is an agent: the profiles are asked first, then the
+ * default pattern. The profile that matches the most of the command line claims it (`codex -m <model of a
+ * bridge>` is the bridge, not Codex), the first one among equals. An empty or broken pattern matches nothing.
  */
 export function matchCommandLine(profiles: readonly AgentProfile[], commandLine: string, defaultPattern: string): CommandLineMatch | undefined {
 	const raw = commandLine.trim();
@@ -287,10 +341,15 @@ export function matchCommandLine(profiles: readonly AgentProfile[], commandLine:
 		return expression ? expression.exec(normalized) ?? expression.exec(raw) ?? undefined : undefined;
 	};
 
+	let best: { profile: AgentProfile; length: number } | undefined;
 	for (const profile of profiles) {
-		if (matches(profile.matchCommand)) {
-			return { profile, label: profile.label };
+		const length = matches(profile.matchCommand)?.[0].length;
+		if (length !== undefined && (!best || length > best.length)) {
+			best = { profile, length };
 		}
+	}
+	if (best) {
+		return { profile: best.profile, label: best.profile.label };
 	}
 
 	const match = matches(defaultPattern);

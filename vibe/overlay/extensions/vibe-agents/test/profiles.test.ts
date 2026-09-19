@@ -52,6 +52,55 @@ test('status rows come from providers, a failing provider is skipped', async () 
 	assert.deepEqual(await registry.statusRows(), [{ id: 'launcher', label: 'Bridge Launcher', detail: 'not running', state: 'off', action: { label: 'Open Launcher', command: 'x.open' } }]);
 });
 
+test('a provider prepares the start of its own profiles: it may fill them in, and it may refuse', async () => {
+	const registry = new ProfileRegistry();
+	const asked: (string | undefined)[] = [];
+	const bridge: AgentProfile = { id: 'web-bridge', label: 'Web Bridge', command: 'codex' };
+	let ready = true;
+	registry.registerProvider({
+		id: 'bridge',
+		provideProfiles: () => [bridge, { id: 'codex', label: 'Shadowed', command: 'other' }],
+		prepareLaunch: async request => {
+			asked.push(request.restartOf);
+			return ready ? { ...request.profile, label: 'Web Bridge (High)', args: ['-m', 'high'] } : undefined;
+		},
+	});
+	registry.registerProvider({ id: 'plain', provideProfiles: () => [{ id: 'plain', label: 'Plain', command: 'plain' }] });
+
+	assert.deepEqual(await registry.prepareLaunch(bridge), { id: 'web-bridge', label: 'Web Bridge (High)', command: 'codex', args: ['-m', 'high'] });
+	assert.deepEqual(await registry.prepareLaunch(bridge, 'codex -m high'), { id: 'web-bridge', label: 'Web Bridge (High)', command: 'codex', args: ['-m', 'high'] });
+	ready = false;
+	assert.equal(await registry.prepareLaunch(bridge), undefined, 'refused: nothing starts');
+	assert.deepEqual(asked, [undefined, 'codex -m high', undefined]);
+
+	// profiles nobody prepares start as they are: built-in ones, the ones of the user, and an id a provider lost to them
+	const codex = registry.get('codex');
+	assert.equal(codex?.label, 'Codex');
+	assert.equal(await registry.prepareLaunch(codex!), codex);
+	assert.equal((await registry.prepareLaunch(registry.get('plain')!))?.label, 'Plain');
+	registry.setUserProfiles([{ id: 'web-bridge', label: 'Mine', command: 'mine' }]);
+	assert.equal((await registry.prepareLaunch(registry.get('web-bridge')!))?.label, 'Mine');
+	assert.equal(asked.length, 3);
+});
+
+test('providers of status rows are told whether the rows are on screen', () => {
+	const registry = new ProfileRegistry();
+	const seen: boolean[] = [];
+	const registration = registry.registerStatusRowProvider({ id: 'bridge', provideStatusRows: () => [], setVisible: visible => seen.push(visible) });
+	registry.setRowsVisible(true);
+	registry.setRowsVisible(true);
+	registry.setRowsVisible(false);
+	assert.deepEqual(seen, [false, true, false]);
+
+	registry.setRowsVisible(true);
+	const late: boolean[] = [];
+	registry.registerStatusRowProvider({ id: 'late', provideStatusRows: () => [], setVisible: visible => late.push(visible) });
+	assert.deepEqual(late, [true], 'a provider that comes late learns what is so');
+	registration.dispose();
+	registry.setRowsVisible(false);
+	assert.deepEqual(seen, [false, true, false, true], 'and one that left learns nothing more');
+});
+
 test('the command line of a profile quotes what a shell would split', () => {
 	assert.equal(commandLineOf({ id: 'a', label: 'A', command: 'claude' }), 'claude');
 	assert.equal(commandLineOf({ id: 'a', label: 'A', command: 'codex', args: ['exec', 'fix the bug', '--model=fast', `it's`, ''] }), `codex exec 'fix the bug' --model=fast 'it'\\''s' ''`);
@@ -80,6 +129,9 @@ test('adoption: a typed command line is matched against the profiles first, then
 	assert.deepEqual(match('gemini -p hi'), [undefined, 'gemini'], 'known by the default pattern only: named after the command');
 	assert.deepEqual(match('aider'), [undefined, 'aider']);
 	assert.deepEqual(match('node /x/test/fake-agent.mjs --work 3'), ['fake', 'Fake Agent']);
+	registry.registerProvider({ id: 'bridge', provideProfiles: () => [{ id: 'web', label: 'Web Bridge', command: 'codex', matchCommand: '^codex\\s(?:.*\\s)?-m\\s+web/' }] });
+	assert.deepEqual(match('codex -m web/high'), ['web', 'Web Bridge'], 'the profile that matches more of the command line claims it, not the first one');
+	assert.deepEqual(match('codex -m native'), ['codex', 'Codex']);
 	assert.deepEqual(match('claudette'), undefined);
 	assert.deepEqual(match('echo claude'), undefined);
 	assert.deepEqual(match(''), undefined);

@@ -422,49 +422,106 @@ button:focus-visible,
 	min-height: 28px;
 }
 
-/* Status rows of providers */
+/*
+ * Status rows of providers: what agents depend on, above the sessions. A row that is fine is one dim line,
+ * one that is not says so in the colour of the text, and only a warning is drawn as one.
+ */
 
 .va-rows {
-	margin-top: auto;
-	padding: 6px 12px 8px;
-	border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border, transparent));
+	padding: 2px 0;
+	border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border, transparent));
 	font-size: 0.92em;
 }
 
 .va-row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 6px;
 	min-height: 22px;
+	padding: 1px 8px 1px 12px;
+	border-left: 2px solid transparent;
+	color: var(--va-muted);
+	line-height: 20px;
 }
 
-.va-row-dot {
-	flex: none;
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background: var(--vscode-disabledForeground);
+.va-row .va-icon-row {
+	width: 14px;
+	height: 14px;
+	margin-top: 3px;
+	stroke-width: 1.4;
 }
 
-.va-row-ok .va-row-dot { background: var(--va-finished); }
-.va-row-warning .va-row-dot { background: var(--va-waiting); }
-
-.va-row-detail {
+/* What is not fine is read whole, at any width: the detail goes below the label as one when it does not fit beside it */
+.va-row-text {
 	flex: 1;
 	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.va-row-label {
+	color: var(--vscode-foreground);
+}
+
+.va-row-detail {
+	display: inline-block;
+	max-width: 100%;
+}
+
+/* What is fine is one dim line */
+.va-row-ok .va-row-text {
 	overflow: hidden;
-	color: var(--va-muted);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.va-row-ok .va-row-label {
+	color: inherit;
+}
+
+.va-row-ok .va-row-detail {
+	display: inline;
+}
+
+.va-row-ok .va-icon-row {
+	color: var(--va-finished);
+}
+
+/* Only a warning is drawn as one */
+.va-row-warning {
+	padding-top: 3px;
+	padding-bottom: 3px;
+	border-left-color: var(--va-waiting);
+	background: color-mix(in srgb, var(--va-waiting) 9%, transparent);
+}
+
+.va-row-warning .va-row-text {
+	color: var(--vscode-foreground);
+}
+
+.va-row-warning .va-icon-row {
+	color: var(--va-waiting);
+}
+
+.va-row-action {
+	width: 20px;
+	height: 20px;
+	margin: -1px 0;
+}
+
+.va-row-action .va-icon {
+	width: 14px;
+	height: 14px;
+}
+
 .va-link {
-	margin-left: auto;
-	padding: 0;
+	flex: none;
+	padding: 0 2px;
 	border: 0;
+	border-radius: 2px;
 	color: var(--vscode-textLink-foreground);
 	background: transparent;
 	cursor: pointer;
+	white-space: nowrap;
 }
 
 .va-link:hover {

@@ -3,11 +3,11 @@
 // The Sessions view: a toolbar and one card per agent session. The view owns no state besides what is on
 // screen: the host sends everything, the view sends what the user asks for. Nothing in here writes a style
 // attribute, the page runs under a strict content security policy.
-import type { StatusRow } from '../model/profiles.ts';
+import type { StatusRow, StatusRowAction } from '../model/profiles.ts';
 import type { HostInbound, HostOutbound, ProfileItem, SessionAction, SessionItem } from '../protocol.ts';
 import { cardModelOf, glyphNameOf, timeTextOf, type CardModel } from './cardModel.ts';
 import { el, setAttribute, setText } from './dom.ts';
-import { actionGlyph, profileGlyph, stateGlyph, toolbarGlyph } from './glyphs.ts';
+import { actionGlyph, profileGlyph, rowActionGlyph, rowStateGlyph, stateGlyph, toolbarGlyph } from './glyphs.ts';
 
 export interface ViewHost {
 	onData(callback: (message: HostInbound) => void): void;
@@ -90,7 +90,11 @@ class SessionsView {
 		this.list.setAttribute('role', 'list');
 		this.list.setAttribute('aria-label', 'Agent sessions');
 
+		// What agents depend on, such as a bridge: above the sessions, where it is seen before one is started
 		this.rows = el('div', 'va-rows');
+		this.rows.setAttribute('role', 'group');
+		this.rows.setAttribute('aria-label', 'Status');
+		this.rows.hidden = true;
 
 		this.emptyActions = el('div', 'va-empty-actions');
 		this.empty = el('div', 'va-empty',
@@ -103,7 +107,7 @@ class SessionsView {
 		this.live.setAttribute('aria-live', 'polite');
 		this.live.setAttribute('role', 'status');
 
-		root.append(this.toolbar, this.menu, this.list, this.empty, this.rows, this.live);
+		root.append(this.toolbar, this.menu, this.rows, this.list, this.empty, this.live);
 
 		this.newButton.addEventListener('click', () => this.toggleMenu());
 		this.newButton.addEventListener('keydown', event => {
@@ -229,17 +233,44 @@ class SessionsView {
 			return;
 		}
 		this.rowsKey = key;
+
+		// A row that is drawn again keeps the focus: on the same action, or else on the first one it has
+		const focused = document.activeElement instanceof HTMLElement && this.rows.contains(document.activeElement) ? document.activeElement : undefined;
+		const focusedRow = focused?.closest<HTMLElement>('.va-row')?.dataset.id;
+		const focusedAction = focused?.dataset.rowAction;
+
 		this.rows.hidden = rows.length === 0;
 		this.rows.replaceChildren(...rows.map(row => {
-			const element = el('div', `va-row va-row-${row.state}`, el('span', 'va-row-dot'), el('span', 'va-row-label', row.label), row.detail ? el('span', 'va-row-detail', row.detail) : undefined);
+			const text = el('span', 'va-row-text', el('span', 'va-row-label', row.label), row.detail ? ' ' : undefined, row.detail ? el('span', 'va-row-detail', row.detail) : undefined);
+			const element = el('div', `va-row va-row-${row.state}`, rowStateGlyph(row.state), text);
+			element.dataset.id = row.id;
+			setAttribute(element, 'title', row.tooltip);
 			if (row.action) {
-				const button = el('button', 'va-link', row.action.label);
-				button.type = 'button';
-				button.addEventListener('click', () => this.host.post({ type: 'row', id: row.id }));
-				element.append(button);
+				element.append(this.rowButton(row, row.action, undefined));
+			}
+			for (const [index, action] of (row.secondaryActions ?? []).entries()) {
+				element.append(this.rowButton(row, action, index));
 			}
 			return element;
 		}));
+
+		if (focusedRow !== undefined) {
+			const element = [...this.rows.querySelectorAll<HTMLElement>('.va-row')].find(candidate => candidate.dataset.id === focusedRow);
+			(element?.querySelector<HTMLElement>(`[data-row-action="${focusedAction}"]`) ?? element?.querySelector<HTMLElement>('button') ?? this.newButton).focus();
+		}
+	}
+
+	/** An action of a status row: a link, or an icon that is called what the link would say. */
+	private rowButton(row: StatusRow, action: StatusRowAction, secondary: number | undefined): HTMLButtonElement {
+		const button = action.icon ? el('button', 'va-action va-row-action', rowActionGlyph(action.icon)) : el('button', 'va-link', action.label);
+		button.type = 'button';
+		button.dataset.rowAction = secondary === undefined ? 'primary' : String(secondary);
+		if (action.icon) {
+			button.title = action.label;
+		}
+		button.setAttribute('aria-label', `${action.label}: ${row.label}`);
+		button.addEventListener('click', () => this.host.post({ type: 'row', id: row.id, secondary }));
+		return button;
 	}
 
 	private createCard(item: SessionItem): Card {

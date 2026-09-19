@@ -308,13 +308,16 @@ export class AgentTerminals implements vscode.Disposable {
 		}
 	}
 
-	/** Starts the agent again: in its terminal when it is over and the shell is back, in a new one otherwise. */
-	async restart(id: string): Promise<void> {
+	/**
+	 * Starts the agent again: in its terminal when it is over and the shell is back, in a new one otherwise.
+	 * `prepared`: its profile as the provider of the profile made it for this start.
+	 */
+	async restart(id: string, prepared?: AgentProfile): Promise<void> {
 		const session = this.registry.get(id);
 		if (!session) {
 			return;
 		}
-		const profile = this.profiles.get(session.profileId);
+		const profile = prepared ?? this.profiles.get(session.profileId);
 		const commandLine = profile && !session.adopted ? commandLineOf(profile) : session.command;
 		const terminal = this.terminals.get(id);
 		const canReuse = terminal !== undefined && !terminal.exitStatus && !isLive(session) && terminal.shellIntegration !== undefined;
