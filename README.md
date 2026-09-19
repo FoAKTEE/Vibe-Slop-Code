@@ -29,6 +29,7 @@ Upstream is never vendored. This repository tracks:
 | `bin/vibe` | the `vibe` command |
 | `branding/` | the icon sources |
 | `tests/` | tests of the tooling (`python3 -m pytest`) |
+| `docs/`, `.githooks/` | the commit-message template and its gate (see Commits) |
 
 `vscode/` (the checkout), `.toolchain/` (the pinned Node) and `.build/` are gitignored.
 
@@ -78,6 +79,18 @@ writes to `DIR/patches` + `DIR/overlay` for inspection without touching tracked 
 Every path is overridable for testing: `VIBE_ROOT`, `VIBE_CHECKOUT`, `VIBE_PATCHES`,
 `VIBE_OVERLAY`, `VIBE_PIN`, `VIBE_TOOLCHAIN`; `VIBE_SKIP_PIN_CHECK=1` disables the
 commit check. The roundtrip is covered by `tests/test_vibe_scaffold.py`.
+
+## Commits
+
+- One commit per node of the DAG in DESIGN.md, or finer — never two nodes in one.
+- Tests land with the code or before it, never after.
+- Messages follow [docs/commit_template.md](docs/commit_template.md): a
+  `type(scope): summary` title, then optional `- kind:` body objects and trailers. Run
+  `scripts/install-hooks.sh` once per clone: git then runs `.githooks/commit-msg`, which
+  rejects a title that breaks the grammar and warns about the rest
+  (`COMMIT_GATE_STRICT=1` makes the warnings errors).
+- Never commit large data: the checkout, the toolchain, packaged apps, server tarballs
+  and screenshots stay out of git.
 
 ## Package and install
 
