@@ -132,3 +132,40 @@ whose host shows up as its own group in the workspace bar — no per-host setup.
 
 DAG: `package → remote-server → remote-ssh → remote-anta` (end-to-end acceptance on the
 real host: connect, open a folder, run `hostname` in the terminal, screenshot).
+
+## 7. Name and icon
+
+The application is **Vibe Slop Code** (`nameLong`); the short name, command, data
+folders, bundle id and URL scheme stay `Vibe` / `vibe` / `.vibe` / `dev.chandra.vibe`,
+so profiles, the CLI link and installed servers survive the rename. The icon is the
+product's own idea drawn small: a directed hypergraph of **five rectangular nodes** with
+one AND-join (two sources meet in a junction, one arrow continues), readable at 16 px.
+Source of truth is `vibe/branding/icon.svg`; `vibe/scripts/make-icon.sh` renders the
+platform files (`.icns`, `.png`, `.ico`) deterministically into the checkout.
+
+## 8. Agents (activity bar) — which agent has finished, which has not
+
+Built-in extension `vibe-agents`: an **Agents** container in the activity bar with a
+webview dashboard — one card per agent session (profile, workspace, state, elapsed,
+last line, Focus / Stop / Restart / Dismiss) — a view badge, and a status-bar summary.
+Agents run in ordinary integrated terminals, started from a profile (`claude`, `codex`,
+ChatGPT Web, custom) or adopted when the user starts a known agent command by hand.
+State comes from the terminal itself, no agent cooperation needed: shell-integration
+start/end events and exit codes (running / finished / failed), and for interactive
+agents that never exit, the output stream — BEL / OSC 9 / OSC 777 notifications and
+output quiescence mean *turn finished, waiting for you*; new output means *working*.
+Because hidden windows keep running (§1), each window reports its counts to the
+workspace-bar service, and the bar shows a per-tab badge: one glance answers "where is
+an agent waiting for me" across every host and workspace.
+
+## 9. ChatGPT Web through Codex (codex-chatgpt-web)
+
+`github.com/miuuyy/codex-chatgpt-web` (MIT, unofficial browser automation; its launcher
+"Codex Web GPT" holds the user's ChatGPT login) exposes ChatGPT Web models inside the
+Codex CLI. Vibe does not embed or drive it; it integrates at the seam that already
+exists — Codex: an agent profile that starts Codex on a ChatGPT Web model, a launcher
+status row (installed / running / models present) with an Open Launcher action, and a
+Chandra skill so a mission can route a worker or a cross-model review through it. The
+bridge's state directory, browser profile and tokens are never read.
+
+DAG: `remote-anta → rename → icon`, `rename → agents → chatgpt-web`, all → `release`.
