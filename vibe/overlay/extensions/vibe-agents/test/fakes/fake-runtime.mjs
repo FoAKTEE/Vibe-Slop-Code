@@ -28,30 +28,27 @@ const port = Number(process.env.FAKE_CGW_PORT || 17841);
 const args = process.argv.slice(2);
 fs.appendFileSync(path.join(stateDir, 'calls.jsonl'), JSON.stringify({ args, scenario, home: process.env.HOME, codexHome: process.env.CODEX_HOME }) + '\n');
 
-const HELP = `codex-chatgpt-web ${VERSION}
-
-Focused ChatGPT web-backed models for the native Codex harness.
-
-Usage:
-  codex-chatgpt-web setup --browser-only [options]
-  codex-chatgpt-web setup --full --tunnel-id ID --runtime-key-file PATH [options]
-  codex-chatgpt-web login
-  codex-chatgpt-web doctor [--json]
-  codex-chatgpt-web route <status|connect|disconnect>
-  codex-chatgpt-web subagents <status|compatibility-v1|native>
-  codex-chatgpt-web browser check
-  codex-chatgpt-web serve
-  codex-chatgpt-web mcp [--broker-socket PATH]
-  codex-chatgpt-web service <status|install|start|restart|stop|cancel-turns>
-  codex-chatgpt-web tunnel <status|start|restart|stop|key-import>
-  codex-chatgpt-web open <tunnels|runtime-keys|connectors>
-  codex-chatgpt-web uninstall --yes
-
-Global:
-  --home PATH                  Override ~/.codex-chatgpt-web
-  -h, --help
-  -v, --version
-`;
+// The usage block of the real command, line for line (its lines start with two spaces, which is why they are strings here)
+const USAGE = [
+	'setup --browser-only [options]',
+	'setup --full --tunnel-id ID --runtime-key-file PATH [options]',
+	'login',
+	'doctor [--json]',
+	'route <status|connect|disconnect>',
+	'subagents <status|compatibility-v1|native>',
+	'browser check',
+	'serve',
+	'mcp [--broker-socket PATH]',
+	'service <status|install|start|restart|stop|cancel-turns>',
+	'tunnel <status|start|restart|stop|key-import>',
+	'open <tunnels|runtime-keys|connectors>',
+	'uninstall --yes',
+];
+const HELP = [
+	`codex-chatgpt-web ${VERSION}`, '', 'Focused ChatGPT web-backed models for the native Codex harness.', '', 'Usage:',
+	...USAGE.map(line => `  codex-chatgpt-web ${line}`),
+	'', 'Global:', '  --home PATH                  Override ~/.codex-chatgpt-web', '  -h, --help', '  -v, --version', '',
+].join('\n');
 
 function out(value) {
 	process.stdout.write(typeof value === 'string' ? value : JSON.stringify(value, null, 2) + '\n');

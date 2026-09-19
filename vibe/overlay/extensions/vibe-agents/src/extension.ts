@@ -4,9 +4,15 @@
 // window tells the workspace bar. What terminals do is in ./host/terminals, every decision in ./model.
 import * as vscode from 'vscode';
 import { ChatGptWebBridge, nodeSystem, type BridgeUi } from './host/chatgptWeb.ts';
+import { LauncherController } from './host/launcher/controller.ts';
+import { LauncherPanelHost, type PanelUi } from './host/launcher/panelHost.ts';
+import { nodeLauncherSystem } from './host/launcher/system.ts';
 import { renderPage } from './host/page.ts';
 import { AgentTerminals } from './host/terminals.ts';
-import { COMMANDS as CHATGPT_WEB_COMMANDS } from './model/chatgptWeb.ts';
+import { COMMANDS as CHATGPT_WEB_COMMANDS, type BridgeFacts } from './model/chatgptWeb.ts';
+import { bridgeFactsOf } from './model/launcher/facts.ts';
+import { COMMAND_OPERATIONS, PANEL_COMMANDS, type LauncherInbound, type Layout } from './model/launcher/panel.ts';
+import { launcherSettingsOf, type LauncherSettings } from './model/launcher/settings.ts';
 import { DEFAULT_ADOPT_PATTERN, ProfileRegistry, parseUserProfiles, type AgentProfile, type ProfileProvider, type Registration, type StatusRow, type StatusRowProvider } from './model/profiles.ts';
 import { SessionRegistry, type SessionChange } from './model/registry.ts';
 import type { Session } from './model/session.ts';
@@ -19,6 +25,8 @@ const BADGE_VIEW = 'vibeAgents.attention';
 const SET_WINDOW_STATUS_COMMAND = '_workbench.workspaceBar.setWindowStatus';
 const CHATGPT_WEB_SECTION = `${SECTION}.chatgptWeb`;
 const CHATGPT_WEB_MODEL_KEY = 'vibeAgents.chatgptWeb.model';
+const CHATGPT_WEB_VIEW = 'vibeAgents.chatgptWeb';
+const CHATGPT_WEB_PANEL = 'vibeAgents.chatgptWeb.panel';
 
 /** What other extensions get from this one: the seam for profiles and status rows that are not its business. */
 export interface VibeAgentsApi {
@@ -68,6 +76,9 @@ class Controller implements vscode.Disposable {
 	private lastWindowStatus = 'undefined';
 	/** Sessions with a notification that is still on screen. */
 	private readonly notified = new Set<string>();
+
+	private launcher: LauncherPanelHost | undefined;
+	private launcherPanel: vscode.WebviewPanel | undefined;
 
 	private readonly context: vscode.ExtensionContext;
 
@@ -171,6 +182,14 @@ class Controller implements vscode.Disposable {
 	 */
 	private createChatGptWeb(): ChatGptWebBridge {
 		const settings = () => vscode.workspace.getConfiguration(CHATGPT_WEB_SECTION);
+		const launcher = this.createLauncher();
+		let shownState: string | undefined;
+		const look = launcher && (async (fresh: boolean): Promise<BridgeFacts> => {
+			if (fresh) {
+				await launcher.controller.refresh('interval');
+			}
+			return bridgeFactsOf(launcher.controller.snapshot.facts);
+		});
 		const ui: BridgeUi = {
 			remoteName: vscode.env.remoteName,
 			isEnabled: () => settings().get<boolean>('enabled') !== false,
@@ -183,20 +202,149 @@ class Controller implements vscode.Disposable {
 			).then(picked => picked?.slug),
 			notify: (severity, message, buttons) => (severity === 'warning' ? vscode.window.showWarningMessage : vscode.window.showInformationMessage)(message, ...buttons),
 			openExternal: url => { vscode.env.openExternal(vscode.Uri.parse(url)); },
+			executeCommand: command => { vscode.commands.executeCommand(command); },
 			log: message => this.log.info(message),
 		};
-		const bridge = new ChatGptWebBridge(ui, nodeSystem(), () => this.profiles.refresh());
+		const bridge = new ChatGptWebBridge(ui, nodeSystem(), () => this.profiles.refresh(), look);
+		if (launcher) {
+			// What the panel does changes what the row says: the row follows, without a look of its own
+			this.disposables.push(launcher.controller.onDidChange(() => {
+				const state = launcher.controller.snapshot.view.bridge;
+				if (state !== shownState) {
+					shownState = state;
+					bridge.factsChanged();
+				}
+			}));
+		}
 		this.disposables.push(
 			new vscode.Disposable(() => bridge.dispose()),
 			this.profiles.registerProvider(bridge),
 			this.profiles.registerStatusRowProvider(bridge),
-			vscode.window.onDidChangeWindowState(state => state.focused && bridge.windowFocused()),
+			vscode.window.onDidChangeWindowState(state => {
+				if (state.focused) {
+					bridge.windowFocused();
+					launcher?.host.windowFocused();
+				}
+			}),
 			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.selectModel, () => bridge.selectModel()),
-			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.openLauncher, () => bridge.openLauncher()),
 			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.openProjectPage, () => bridge.openProjectPage()),
 			vscode.commands.registerCommand(CHATGPT_WEB_COMMANDS.recheck, () => bridge.recheck()),
 		);
 		return bridge;
+	}
+
+	/**
+	 * The ChatGPT Web panel: the launcher as the engine, Vibe as its interface, see ./host/launcher. Local windows
+	 * only, as the profile. Every program it runs is named by a machine setting, and where they resolve to is
+	 * written to the log once, by the name of the file only: a window under test shows there that it runs stand-ins.
+	 */
+	private createLauncher(): { controller: LauncherController; host: LauncherPanelHost } | undefined {
+		const configuration = () => vscode.workspace.getConfiguration(CHATGPT_WEB_SECTION);
+		const isEnabled = () => configuration().get<boolean>('enabled') !== false;
+		const off = () => { vscode.window.showInformationMessage(vscode.env.remoteName === undefined ? vscode.l10n.t("ChatGPT Web is turned off (vibeAgents.chatgptWeb.enabled).") : vscode.l10n.t("ChatGPT Web is offered in local windows only: the launcher and its port are on this machine.")); };
+		const commands = [PANEL_COMMANDS.openPanel, PANEL_COMMANDS.refresh, ...Object.keys(COMMAND_OPERATIONS)];
+		if (vscode.env.remoteName !== undefined) {
+			this.disposables.push(...commands.map(command => vscode.commands.registerCommand(command, off)));
+			return undefined;
+		}
+
+		const keys: (keyof LauncherSettings)[] = ['runtimePath', 'launcherBundleId', 'launcherAppPath', 'openCommand', 'osascriptCommand', 'pgrepCommand', 'codexCommand', 'codexConfigPath'];
+		const settings = () => launcherSettingsOf(Object.fromEntries(keys.map(key => [key, configuration().get<string>(key)])));
+		const basename = (path: string | undefined) => path === undefined ? '(default)' : path.split(/[\\/]/).pop();
+		const seams = settings();
+		this.log.info(`chatgpt-web seams: runtime=${basename(seams.runtimePath)} open=${basename(seams.openCommand)} osascript=${basename(seams.osascriptCommand)} pgrep=${basename(seams.pgrepCommand)} codex=${basename(seams.codexCommand)} bundle=${seams.launcherBundleId} app=${basename(seams.launcherAppPath)} codexConfig=${basename(seams.codexConfigPath)}`);
+
+		const system = nodeLauncherSystem(settings);
+		const controller = new LauncherController(system, {
+			settings,
+			openExternal: url => { vscode.env.openExternal(vscode.Uri.parse(url)); },
+			selectedModel: () => this.context.globalState.get<string>(CHATGPT_WEB_MODEL_KEY),
+		});
+		const ui: PanelUi = {
+			confirm: async request => {
+				// The first button is the one Enter presses: where there is a way that keeps the machine working, it is that one
+				const chosen = await vscode.window.showWarningMessage(request.title, { modal: true, detail: request.detail }, ...[request.alternative, request.button].filter(label => label !== undefined));
+				return chosen === request.button ? 'go' : chosen !== undefined && chosen === request.alternative ? 'alternative' : undefined;
+			},
+			openPanel: () => this.showLauncherPanel(),
+			log: message => this.log.info(message),
+		};
+		const host = new LauncherPanelHost(controller, ui, system.timers);
+		this.launcher = host;
+
+		const run = (command: string) => async () => {
+			if (!isEnabled()) {
+				off();
+				return;
+			}
+			const outcome = await host.run(COMMAND_OPERATIONS[command]);
+			// Where no view of ChatGPT Web shows how it ended, a notification does
+			if (!host.isShowing && outcome.message) {
+				(outcome.status === 'ok' || outcome.status === 'cancelled' ? vscode.window.showInformationMessage : vscode.window.showWarningMessage)(outcome.message);
+			}
+		};
+		this.disposables.push(
+			new vscode.Disposable(() => { host.dispose(); controller.dispose(); }),
+			vscode.window.registerWebviewViewProvider(CHATGPT_WEB_VIEW, { resolveWebviewView: view => this.resolveLauncherView(view) }),
+			vscode.window.registerWebviewPanelSerializer(CHATGPT_WEB_PANEL, { deserializeWebviewPanel: async panel => this.adoptLauncherPanel(panel) }),
+			vscode.commands.registerCommand(PANEL_COMMANDS.openPanel, () => isEnabled() ? host.openPanel() : off()),
+			vscode.commands.registerCommand(PANEL_COMMANDS.refresh, () => isEnabled() ? host.refresh(true) : off()),
+			...Object.keys(COMMAND_OPERATIONS).map(command => vscode.commands.registerCommand(command, run(command))),
+		);
+		return { controller, host };
+	}
+
+	private launcherPage(webview: vscode.Webview, layout: Layout): string {
+		const media = vscode.Uri.joinPath(this.context.extensionUri, 'media');
+		webview.options = { enableScripts: true, localResourceRoots: [media] };
+		const asset = (name: string): string => webview.asWebviewUri(vscode.Uri.joinPath(media, name)).toString();
+		return renderPage({ cspSource: webview.cspSource, nonce: nonce(), styleUri: [asset('sessions.css'), asset('launcher.css')], scriptUri: asset('launcher.js'), title: vscode.l10n.t("ChatGPT Web"), data: { layout } });
+	}
+
+	private resolveLauncherView(view: vscode.WebviewView): void {
+		const host = this.launcher;
+		if (!host) {
+			return;
+		}
+		const attached = host.attach({ layout: 'compact', post: (message: LauncherInbound) => { view.webview.postMessage(message); } }, view.visible);
+		const listeners = vscode.Disposable.from(
+			view.webview.onDidReceiveMessage(message => attached.onMessage(message)),
+			view.onDidChangeVisibility(() => attached.setVisible(view.visible)),
+			view.onDidDispose(() => {
+				listeners.dispose();
+				attached.dispose();
+			}),
+		);
+		view.webview.html = this.launcherPage(view.webview, 'compact');
+	}
+
+	private showLauncherPanel(): void {
+		if (this.launcherPanel) {
+			this.launcherPanel.reveal();
+			return;
+		}
+		this.adoptLauncherPanel(vscode.window.createWebviewPanel(CHATGPT_WEB_PANEL, vscode.l10n.t("ChatGPT Web"), vscode.ViewColumn.Active, { enableScripts: true }));
+	}
+
+	/** A panel that was just created, or one the workbench brings back after a reload: its webview kept which screen it showed. */
+	private adoptLauncherPanel(panel: vscode.WebviewPanel): void {
+		const host = this.launcher;
+		if (!host || this.launcherPanel) {
+			panel.dispose(); // one panel per window
+			return;
+		}
+		this.launcherPanel = panel;
+		const attached = host.attach({ layout: 'panel', post: (message: LauncherInbound) => { panel.webview.postMessage(message); } }, panel.visible);
+		const listeners = vscode.Disposable.from(
+			panel.webview.onDidReceiveMessage(message => attached.onMessage(message)),
+			panel.onDidChangeViewState(() => attached.setVisible(panel.visible)),
+			panel.onDidDispose(() => {
+				listeners.dispose();
+				attached.dispose();
+				this.launcherPanel = undefined;
+			}),
+		);
+		panel.webview.html = this.launcherPage(panel.webview, 'panel');
 	}
 
 	//#endregion

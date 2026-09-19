@@ -11,7 +11,7 @@
 import { launcherAppPaths, parseLauncherRoute, resolveCodexConfigPath, type ProbeFailure } from '../../model/chatgptWeb.ts';
 import { ActivityLog, type ActivityEntry, type ActivityOutcome } from '../../model/launcher/activity.ts';
 import { daemonPortOf, emptyFacts, failed, isRouteActive, isRouteInstalled, type LauncherFacts, type ProbeFailed } from '../../model/launcher/facts.ts';
-import { OPERATIONS, argvOf, checkPreconditions, confirmationOf, isOperationId, operationOf, type Confirmation, type Operation, type OperationId, type ProbeId } from '../../model/launcher/operations.ts';
+import { OPERATIONS, argvOf, checkPreconditions, confirmationOf, isAbortable, isOperationId, operationOf, type Confirmation, type Operation, type OperationId, type ProbeId } from '../../model/launcher/operations.ts';
 import {
 	CODEX_MODELS_ARGV, parseCancelledTurns, parseCliError, parseCodexModels, parseDoctor, parseEngineHealth, parseRouteChange, parseRouteStatus, parseSubagentsChange, parseSubagentsStatus,
 	parseVersion, runtimeArgv, runtimeCandidates, runtimeCommandOf, type RuntimeCommandId, type Unparseable,
@@ -74,12 +74,12 @@ interface Executed {
 	message: string;
 	exitCode: number | undefined;
 	note: string | undefined;
+	/** Nothing was run: there is nothing to write down. */
+	skipped?: boolean;
 }
 
 const FREE_PROBES: readonly ProbeId[] = OPERATIONS.filter(operation => operation.cadence === 'interval').map(operation => operation.id as ProbeId);
 const OPEN_PROBES: readonly ProbeId[] = ['probe.runtime', 'probe.engine', 'probe.codexRoute', 'probe.routeStatus', 'probe.health', 'probe.subagents'];
-/** What runs only reads: it can be ended half way. What writes the config of Codex or a journal cannot. */
-const ABORTABLE: ReadonlySet<OperationId> = new Set<OperationId>(['doctor.run', 'models.refresh', ...OPERATIONS.filter(operation => operation.kind === 'probe').map(operation => operation.id)]);
 /** How long after the quit event the launcher is looked for again: it drains its daemon before it exits. */
 const QUIT_POLL_MS: readonly number[] = [500, 1000, 2000, 4000, 8000];
 /** On top of the deadline of a program: the machine below may never answer at all. */
@@ -190,7 +190,7 @@ export class LauncherController {
 			return true;
 		}
 		const running = this.current?.job;
-		if (running?.ticket === ticket && (running.operation === undefined || ABORTABLE.has(running.operation))) {
+		if (running?.ticket === ticket && (running.operation === undefined || isAbortable(running.operation))) {
 			running.abort.abort();
 			return true;
 		}
@@ -256,8 +256,9 @@ export class LauncherController {
 			}
 			await this.probe(probe, job.abort.signal, job.scope === 'open');
 		}
-		// The launcher connects the route by itself when it starts: the journal is asked again when the config of Codex says so
-		if (job.scope === 'settle' && wasRouted !== isRouteActive(this.facts) && this.facts.runtime.found) {
+		// The launcher connects the route by itself when it starts, and another window may pause it: the journal is asked
+		// again when, and only when, the config of Codex shows a change. That is an event, not a timer
+		if (job.scope !== 'open' && wasRouted !== isRouteActive(this.facts) && this.facts.runtime.found) {
 			await this.probe('probe.routeStatus', job.abort.signal, true);
 		}
 		this.noteStateChange();
@@ -280,7 +281,7 @@ export class LauncherController {
 		const startedAt = this.system.clock.now();
 		const operation = operationOf(id);
 		const executed = await this.lookAt(id, operation, signal);
-		if (written && (id === 'probe.runtime' || id === 'probe.routeStatus' || id === 'probe.subagents')) {
+		if (written && !executed.skipped && (id === 'probe.runtime' || id === 'probe.routeStatus' || id === 'probe.subagents')) {
 			const argv = argvOf(operation, { bundleId: this.options.settings().launcherBundleId });
 			this.log.record({ at: startedAt, operation: id, program: this.runtimePath === undefined ? undefined : argv?.program, args: argv?.args, outcome: executed.status, durationMs: this.system.clock.now() - startedAt, exitCode: executed.exitCode, note: executed.note });
 		}
@@ -314,13 +315,18 @@ export class LauncherController {
 			case 'probe.runtime': return this.findRuntime(operation, signal);
 			case 'probe.routeStatus': {
 				const answer = await this.askRuntime('route-status', operation.timeoutMs, signal, parseRouteStatus);
+				const before = this.facts.route;
 				this.facts = { ...this.facts, route: answer.value };
+				if (before?.kind === 'route-status' && answer.value.kind === 'route-status' && before.installed !== answer.value.installed) {
+					// Another installation than the one that was asked about: what the doctor, Codex and the runtime said is about the old one
+					this.facts = { ...this.facts, doctor: undefined, doctorAt: undefined, models: undefined, modelsAt: undefined, subagents: undefined };
+				}
 				return answer.value.kind === 'failed' ? answer.executed : { ...answer.executed, note: `route: ${!answer.value.installed ? 'not installed' : answer.value.active ? 'installed, connected' : 'installed, paused'}${answer.value.errors.length ? `, ${answer.value.errors.length} inconsistent` : ''}` };
 			}
 			case 'probe.subagents': {
 				if (isRouteInstalled(this.facts) === false) {
 					this.facts = { ...this.facts, subagents: undefined }; // nothing is installed: there is nothing to ask about
-					return done('not asked: nothing is installed');
+					return { ...done('not asked: nothing is installed'), skipped: true };
 				}
 				const answer = await this.askRuntime('subagents-status', operation.timeoutMs, signal, parseSubagentsStatus);
 				this.facts = { ...this.facts, subagents: answer.value };
@@ -358,15 +364,15 @@ export class LauncherController {
 
 	private async runOperation(job: Job, operation: Operation): Promise<OperationOutcome> {
 		const signal = job.abort.signal;
+		if (operation.preconditions.includes('runtime') && this.runtimePath === undefined) {
+			await this.probe('probe.runtime', signal, true);
+		}
 		if (operation.kind === 'probe') {
 			const executed = await this.probe(operation.id as ProbeId, signal, true);
 			return this.outcomeOf(job, executed.status, executed.message);
 		}
 
 		// What is decided is decided on what is true now
-		if (operation.preconditions.includes('runtime') && this.runtimePath === undefined) {
-			await this.probe('probe.runtime', signal, true);
-		}
 		for (const probe of FREE_PROBES) {
 			await this.probe(probe, signal, false);
 		}

@@ -78,5 +78,5 @@ export function activeTurnsOf(facts: LauncherFacts): number {
 
 /** The same facts as the status row of the Sessions view decides on: both tell one story. */
 export function bridgeFactsOf(facts: LauncherFacts): BridgeFacts {
-	return { appInstalled: facts.appInstalled, launcherRunning: facts.launcherRunning, route: facts.configRoute, health: facts.health, error: facts.healthError };
+	return { appInstalled: facts.appInstalled, launcherRunning: facts.launcherRunning, route: facts.configRoute, routeInstalled: isRouteInstalled(facts), health: facts.health, error: facts.healthError };
 }

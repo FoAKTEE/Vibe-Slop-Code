@@ -28,3 +28,11 @@ test('what goes into the page is escaped', () => {
 	assert.ok(html.includes('<title>&lt;b&gt;&quot;T&quot;&lt;/b&gt;</title>'));
 	assert.ok(html.includes('src="https://x/a.js?x=&quot;y&quot;&amp;z"'));
 });
+
+test('a page with two style sheets and a layout: still nothing inline, and what is set on the root is escaped', () => {
+	const html = renderPage({ ...INPUT, styleUri: ['https://x/media/sessions.css', 'https://x/media/launcher.css'], scriptUri: 'https://x/media/launcher.js', data: { layout: 'pa"nel', 'on click': 'x', onclick: 'alert(1)' } });
+	assert.deepEqual(html.match(/<link rel="stylesheet" href="[^"]*">/g), ['<link rel="stylesheet" href="https://x/media/sessions.css">', '<link rel="stylesheet" href="https://x/media/launcher.css">']);
+	assert.ok(html.includes('<div id="vibe-agents" data-layout="pa&quot;nel" data-onclick="alert(1)"></div>'), 'a data attribute is inert, and a name that is none is dropped');
+	assert.ok(!/unsafe-inline|unsafe-eval|\sstyle=|<style/.test(html));
+	assert.equal(html.match(/<script/g)?.length, 1);
+});

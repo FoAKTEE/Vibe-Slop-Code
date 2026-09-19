@@ -1,0 +1,543 @@
+/* SPDX-License-Identifier: MIT */
+
+/*
+ * ChatGPT Web: the editor panel and the compact view below Sessions. It comes after sessions.css, which has the
+ * body, the buttons, the links, the icons and the focus ring. Every colour is a theme variable of the workbench;
+ * how an item is shows by shape as well as by colour. One thing is drawn as a warning: the one state that is one.
+ */
+
+.cw {
+	--cw-rule: var(--vscode-editorGroup-border, var(--vscode-widget-border, transparent));
+	--cw-accent: var(--vscode-button-background);
+}
+
+/* Head: the state in one line, what runs, Refresh */
+
+.cw-head {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 24px;
+	padding: 10px 16px 8px 20px;
+	background: var(--vscode-editor-background);
+	border-bottom: 1px solid var(--cw-rule);
+}
+
+.cw-head-glyph {
+	display: inline-flex;
+	flex: none;
+}
+
+.cw-headline {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	overflow: hidden;
+	font-size: 1.15em;
+	font-weight: 600;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cw-busy {
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+	gap: 4px;
+	max-width: 50%;
+	color: var(--va-muted);
+	font-size: 0.92em;
+}
+
+.cw-busy-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cw-busy .va-icon {
+	width: 14px;
+	height: 14px;
+	color: var(--va-working);
+}
+
+/* How the last operation ended: one quiet line */
+
+.cw-result {
+	padding: 4px 16px 4px 20px;
+	border-bottom: 1px solid var(--cw-rule);
+	color: var(--va-muted);
+	font-size: 0.92em;
+	overflow-wrap: anywhere;
+}
+
+.cw-result-failed,
+.cw-result-timeout,
+.cw-result-unparseable {
+	color: var(--va-failed);
+}
+
+/* Shape and colour of how an item is */
+
+.cw-icon-ok,
+.cw-icon-step-done {
+	color: var(--va-finished);
+}
+
+.cw-icon-warning {
+	color: var(--va-waiting);
+}
+
+.cw-icon-error {
+	color: var(--va-failed);
+}
+
+.cw-icon-info {
+	color: var(--va-working);
+}
+
+.cw-icon-off,
+.cw-icon-step-todo,
+.cw-icon-step-unknown {
+	color: var(--va-muted);
+}
+
+.cw-icon-step-unknown {
+	stroke-dasharray: 2.2 2.2;
+}
+
+.cw-icon-step-handoff {
+	color: var(--vscode-textLink-foreground);
+}
+
+/* Rail and screen */
+
+.cw-body {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+}
+
+.cw-rail {
+	position: sticky;
+	top: 43px;
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	align-self: flex-start;
+	gap: 1px;
+	box-sizing: border-box;
+	width: 196px;
+	padding: 10px 8px;
+}
+
+.cw-tab {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 26px;
+	padding: 2px 8px;
+	border: 0;
+	border-radius: 4px;
+	background: transparent;
+	text-align: left;
+	cursor: pointer;
+}
+
+.cw-tab:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.cw-tab[aria-selected="true"] {
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-inactiveSelectionBackground));
+}
+
+/* A screen that has the warning, or something that failed, carries a mark: a filled one, and a ring */
+.cw-tab-mark {
+	flex: none;
+	box-sizing: border-box;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+}
+
+.cw-tab.cw-severity-warning .cw-tab-mark {
+	background: var(--va-waiting);
+}
+
+.cw-tab.cw-severity-error .cw-tab-mark {
+	border: 1.5px solid var(--va-failed);
+}
+
+.cw-tab-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cw-tab-count {
+	flex: none;
+	color: var(--va-muted);
+	font-size: 0.88em;
+	font-variant-numeric: tabular-nums;
+}
+
+.cw-tab[aria-selected="true"] .cw-tab-count {
+	color: inherit;
+	opacity: 0.8;
+}
+
+.cw-screen {
+	flex: 1;
+	min-width: 0;
+	max-width: 860px;
+	padding: 12px 24px 32px 16px;
+	border-left: 1px solid var(--cw-rule);
+}
+
+.cw-screen-title {
+	margin: 0 0 2px;
+	font-size: 1.05em;
+	font-weight: 600;
+}
+
+.cw-screen-summary {
+	max-width: 76ch;
+	margin: 0 0 8px;
+	color: var(--va-muted);
+}
+
+/* Items */
+
+.cw-items {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.cw-item {
+	padding: 8px 8px 9px 10px;
+	border-top: 1px solid var(--cw-rule);
+	border-left: 2px solid transparent;
+}
+
+.cw-item-head {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 20px;
+}
+
+.cw-item-head .va-icon {
+	margin: 0;
+}
+
+.cw-item-mark {
+	flex: none;
+	width: 14px;
+}
+
+.cw-item-label {
+	min-width: 0;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.cw-item-inline {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--va-muted);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cw-item.cw-item-done {
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
+
+.cw-item-time {
+	flex: none;
+	margin-left: auto;
+	color: var(--va-muted);
+	font-size: 0.92em;
+	font-variant-numeric: tabular-nums;
+}
+
+.cw-step {
+	flex: none;
+	padding: 0 6px;
+	border: 1px solid var(--cw-rule);
+	border-radius: 8px;
+	color: var(--va-muted);
+	font-size: 0.85em;
+	line-height: 15px;
+	white-space: nowrap;
+}
+
+.cw-step-handoff {
+	border-color: color-mix(in srgb, var(--vscode-textLink-foreground) 45%, transparent);
+	color: color-mix(in srgb, var(--vscode-textLink-foreground) 60%, var(--vscode-foreground));
+}
+
+.cw-item-text,
+.cw-item-detail,
+.cw-ops {
+	margin: 1px 0 0;
+	padding-left: 20px;
+}
+
+.cw-item-text {
+	overflow-wrap: anywhere;
+}
+
+.cw-item-detail {
+	max-width: 80ch;
+	color: var(--va-muted);
+	font-size: 0.92em;
+	overflow-wrap: anywhere;
+}
+
+/* A fact: its name, and beside it what is known, as in a table */
+.cw-item.cw-item-fact {
+	display: grid;
+	grid-template-columns: 14px 172px minmax(0, 1fr) auto;
+	gap: 0 6px;
+	align-items: start;
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
+
+.cw-item-fact .va-icon {
+	margin-top: 2px;
+}
+
+.cw-item-fact .cw-item-label {
+	font-weight: normal;
+	color: var(--va-muted);
+}
+
+.cw-item-fact .cw-item-text,
+.cw-item-fact .cw-item-detail {
+	margin: 0;
+	padding-left: 0;
+}
+
+.cw-item-fact.cw-severity-error .cw-item-label,
+.cw-item-fact.cw-severity-warning .cw-item-label {
+	color: var(--vscode-foreground);
+}
+
+.cw-item-done .cw-item-label {
+	font-weight: normal;
+}
+
+.cw-item-done .cw-item-detail {
+	display: none;
+}
+
+/* The step to take now */
+.cw-item.cw-next {
+	border-left-color: var(--cw-accent);
+	background: color-mix(in srgb, var(--cw-accent) 7%, transparent);
+}
+
+/* The one state that asks for attention, and nothing else */
+.cw-item.cw-severity-warning {
+	border-left-color: var(--va-waiting);
+	background: color-mix(in srgb, var(--va-waiting) 9%, transparent);
+}
+
+.cw-item.cw-severity-error .cw-item-text {
+	color: var(--va-failed);
+}
+
+/* Operations: the button, and beside it what it does */
+
+.cw-ops {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.cw-op {
+	display: grid;
+	grid-template-columns: 178px minmax(0, 1fr);
+	gap: 2px 12px;
+	align-items: start;
+}
+
+.cw-op-button {
+	width: 100%;
+	min-height: 26px;
+	white-space: normal;
+}
+
+.cw-op-button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+.cw-op-button .va-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.cw-op-text {
+	max-width: 76ch;
+	padding-top: 3px;
+	font-size: 0.92em;
+}
+
+.cw-op-text p {
+	margin: 0 0 2px;
+	overflow-wrap: anywhere;
+}
+
+.cw-op-consequence,
+.cw-op-why,
+.cw-op-state {
+	color: var(--va-muted);
+}
+
+.cw-op-hint {
+	font-weight: 600;
+}
+
+.cw-op-arrow {
+	color: var(--vscode-textLink-foreground);
+}
+
+.cw-op-text .va-link {
+	padding: 0;
+}
+
+/* Narrow: the rail lies down, and what a button does goes below it */
+
+@media (max-width: 680px) {
+	.cw-body {
+		flex-direction: column;
+	}
+
+	.cw-rail {
+		position: static;
+		flex-direction: row;
+		align-self: stretch;
+		width: auto;
+		padding: 6px 12px;
+		overflow-x: auto;
+		border-bottom: 1px solid var(--cw-rule);
+	}
+
+	.cw-tab {
+		flex: none;
+	}
+
+	.cw-screen {
+		padding: 10px 12px 24px;
+		border-left: 0;
+	}
+
+	.cw-op {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.cw-item.cw-item-fact {
+		grid-template-columns: 14px minmax(0, 1fr) auto;
+	}
+
+	.cw-item-fact .cw-fact {
+		grid-column: 2 / -1;
+	}
+
+	.cw-op-button {
+		max-width: 300px;
+	}
+}
+
+/* The compact view, below Sessions */
+
+.cw-compact .cw-head {
+	padding: 6px 8px 6px 12px;
+	background: var(--vscode-sideBar-background);
+	border-bottom-color: var(--vscode-sideBarSectionHeader-border, transparent);
+}
+
+.cw-compact .cw-headline {
+	font-size: 1em;
+	font-weight: normal;
+}
+
+.cw-compact .cw-result {
+	padding: 3px 8px 3px 12px;
+}
+
+.cw-compact .cw-screen {
+	max-width: none;
+	padding: 0;
+	border-left: 0;
+}
+
+.cw-compact .cw-item {
+	padding: 5px 8px 6px 10px;
+	border-top: 0;
+	font-size: 0.96em;
+}
+
+.cw-compact .cw-item-label {
+	font-weight: normal;
+}
+
+.cw-compact .cw-item.cw-next .cw-item-label,
+.cw-compact .cw-item.cw-severity-warning .cw-item-label {
+	font-weight: 600;
+}
+
+.cw-compact .cw-item-text {
+	color: var(--va-muted);
+}
+
+.cw-compact .cw-item.cw-severity-warning .cw-item-text {
+	color: var(--vscode-foreground);
+}
+
+.cw-compact .cw-item-done .cw-item-detail,
+.cw-compact .cw-item:not(.cw-severity-warning) .cw-item-detail {
+	display: none;
+}
+
+.cw-compact .cw-op {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.cw-compact .cw-op-button {
+	max-width: 300px;
+}
+
+/* What a button does is said below it; the whole of it when the pointer or the keyboard is on it, and in the question it asks */
+.cw-compact .cw-op-consequence,
+.cw-compact .cw-op-why {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+}
+
+.cw-compact .cw-op:hover .cw-op-consequence,
+.cw-compact .cw-op:focus-within .cw-op-consequence,
+.cw-compact .cw-op:hover .cw-op-why,
+.cw-compact .cw-op:focus-within .cw-op-why {
+	display: block;
+}
+
+.cw-foot {
+	padding: 4px 8px 10px 30px;
+	font-size: 0.96em;
+}

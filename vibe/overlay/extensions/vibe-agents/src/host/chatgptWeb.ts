@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as os from 'node:os';
 import {
-	CHATGPT_WEB_PROFILE_ID, CHATGPT_WEB_PROJECT_URL, HEALTH_TIMEOUT_MS, LAUNCHER_APP_NAME, LAUNCHER_BUNDLE_ID, PROBE_INTERVAL_MS, ProbeSchedule, actionOf, chatGptWebLaunchProfile,
+	CHATGPT_WEB_PROFILE_ID, CHATGPT_WEB_PROJECT_URL, COMMANDS, HEALTH_TIMEOUT_MS, LAUNCHER_APP_NAME, PROBE_INTERVAL_MS, ProbeSchedule, actionOf, chatGptWebLaunchProfile,
 	chatGptWebProfile, isReadyState, isTerminalSlug, launcherAppPaths, parseHealth, parseLauncherRoute, presentBridge, resolveCodexConfigPath, rowOfBridge, slugOfCommandLine, terminalModels,
 	type BridgeAction, type BridgeFacts, type BridgeHealth, type BridgePresentation, type IntervalTimers, type ProbeFailure,
 } from '../model/chatgptWeb.ts';
@@ -42,6 +42,8 @@ export interface BridgeUi {
 	/** A notification that is not modal. Resolves with the button that was chosen. */
 	notify(severity: 'info' | 'warning', message: string, buttons: string[]): PromiseLike<string | undefined>;
 	openExternal(url: string): void;
+	/** Runs a command of the editor: the panel and the window of the launcher are behind commands. */
+	executeCommand(command: string): void;
 	log(message: string): void;
 }
 
@@ -131,12 +133,18 @@ export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
 	private readonly ui: BridgeUi;
 	private readonly system: BridgeSystem;
 	private readonly onDidChange: () => void;
+	private readonly lookElsewhere: ((fresh: boolean) => Promise<BridgeFacts>) | undefined;
 
-	/** `onDidChange`: the profile or the row changed. */
-	constructor(ui: BridgeUi, system: BridgeSystem, onDidChange: () => void) {
+	/**
+	 * `onDidChange`: the profile or the row changed. `look`: where a window has the controller of the ChatGPT Web
+	 * panel, the facts are the ones it gathers, through the programs its settings name: one look for both, and one story.
+	 * `fresh`: look now. Not so: what is known already.
+	 */
+	constructor(ui: BridgeUi, system: BridgeSystem, onDidChange: () => void, look?: (fresh: boolean) => Promise<BridgeFacts>) {
 		this.ui = ui;
 		this.system = system;
 		this.onDidChange = onDidChange;
+		this.lookElsewhere = look;
 		this.enabled = ui.isEnabled();
 		this.schedule = new ProbeSchedule(() => { this.check().catch(() => ui.log('chatgpt-web: the look at the bridge failed')); }, PROBE_INTERVAL_MS, system.timers);
 	}
@@ -204,8 +212,17 @@ export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
 	}
 
 	private async look(): Promise<BridgePresentation> {
-		const facts = await this.facts();
-		const presentation = presentBridge(facts, { canOpenLauncher: this.canOpenLauncher });
+		return this.show(presentBridge(await this.facts(), { canOpenLauncher: this.canOpenLauncher }));
+	}
+
+	/** The facts changed where they are gathered (the panel did something): the row follows, without a look of its own. */
+	async factsChanged(): Promise<void> {
+		if (this.isActive && this.lookElsewhere && !this.running) {
+			this.show(presentBridge(await this.lookElsewhere(false), { canOpenLauncher: this.canOpenLauncher }));
+		}
+	}
+
+	private show(presentation: BridgePresentation): BridgePresentation {
 		if (this.isActive && JSON.stringify(presentation) !== JSON.stringify(this.shown)) {
 			if (presentation.state !== this.shown?.state) {
 				this.ui.log(`chatgpt-web: ${presentation.state}`);
@@ -217,6 +234,9 @@ export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
 	}
 
 	private async facts(): Promise<BridgeFacts> {
+		if (this.lookElsewhere) {
+			return this.lookElsewhere(true);
+		}
 		const appInstalled = this.system.platform === 'darwin'
 			? (await Promise.all(launcherAppPaths(this.system.homedir).map(path => this.system.exists(path)))).some(Boolean)
 			: undefined;
@@ -299,28 +319,11 @@ export class ChatGptWebBridge implements ProfileProvider, StatusRowProvider {
 
 	private run(action: BridgeAction): void {
 		switch (action) {
-			case 'open-launcher': this.openLauncher(); break;
+			case 'open-panel': this.ui.executeCommand(COMMANDS.openPanel); break;
+			case 'show-launcher': this.ui.executeCommand(COMMANDS.showLauncher); break;
 			case 'project-page': this.openProjectPage(); break;
 			case 'recheck': this.recheck(); break;
 		}
-	}
-
-	/**
-	 * Brings the launcher to the front, starting it when it is closed: it is one instance and keeps its state,
-	 * so this changes nothing in it. Where that cannot be done, the project page tells how to get it.
-	 */
-	openLauncher(): Promise<void> {
-		if (!this.canOpenLauncher) {
-			this.openProjectPage();
-			return Promise.resolve();
-		}
-		return new Promise(resolve => this.system.execFile('/usr/bin/open', ['-b', LAUNCHER_BUNDLE_ID], error => {
-			if (error) {
-				this.ui.log(`chatgpt-web: open -b ${LAUNCHER_BUNDLE_ID} failed`);
-				this.openProjectPage();
-			}
-			resolve();
-		}));
 	}
 
 	openProjectPage(): void {

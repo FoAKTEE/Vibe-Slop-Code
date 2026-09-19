@@ -82,3 +82,42 @@ export function rowStateGlyph(state: StatusRow['state']): SVGSVGElement {
 export function rowActionGlyph(name: NonNullable<StatusRowAction['icon']>): SVGSVGElement {
 	return icon(ROW_ACTION[name], 'va-icon-action');
 }
+
+//#region ChatGPT Web
+
+/** The state of a step of a checklist: check, ring, dashed ring (only the launcher knows), arrow out (done in the launcher). */
+const STEP = {
+	done: ['M3 8.5l3.2 3.2L13 4.8'],
+	todo: ['M8 12.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z'],
+	unknown: ['M8 12.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9z'],
+	handoff: ['M6.5 3.5H3.5v9h9v-3', 'M9 3h4v4', 'M13 3L7.5 8.5'],
+} as const;
+
+/** How an item is: check, dot, warning triangle, cross, ring. */
+const SEVERITY = {
+	ok: ROW_STATE.ok,
+	info: ['M8 13.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11z', 'M8 7.4v3.6', 'M8 5.1v.2'],
+	warning: ROW_STATE.warning,
+	error: ['M4 4l8 8M12 4l-8 8'],
+	off: ROW_STATE.off,
+} as const;
+
+const PANEL = {
+	refresh: ROW_ACTION.refresh,
+	working: STATE.working,
+	panel: ['M2 3.5h12v9H2z', 'M6 3.5v9'],
+} as const;
+
+export function stepGlyph(step: keyof typeof STEP): SVGSVGElement {
+	return icon(STEP[step], `va-icon-row cw-icon-step cw-icon-step-${step}`);
+}
+
+export function severityGlyph(severity: keyof typeof SEVERITY): SVGSVGElement {
+	return icon(SEVERITY[severity], `va-icon-row cw-icon-severity cw-icon-${severity}`);
+}
+
+export function panelGlyph(name: keyof typeof PANEL): SVGSVGElement {
+	return icon(PANEL[name], name === 'working' ? 'va-icon-action va-icon-working' : 'va-icon-action');
+}
+
+//#endregion

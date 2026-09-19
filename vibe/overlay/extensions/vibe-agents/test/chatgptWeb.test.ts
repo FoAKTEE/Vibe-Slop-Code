@@ -149,16 +149,20 @@ test('every state: row text, severity, action and the next step, which is the on
 		shown({ appInstalled: true, launcherRunning: false, route: ABSENT }),
 		shown({ appInstalled: true, route: LAUNCHER, error: 'unreachable' }),
 		shown({ appInstalled: true, route: FOREIGN }),
+		shown({ appInstalled: true, launcherRunning: true, route: ABSENT, routeInstalled: true }),
+		shown({ appInstalled: true, launcherRunning: false, route: ABSENT, routeInstalled: true }),
 		shown({ appInstalled: true, route: LAUNCHER, health: { ...HEALTHY, acceptingTurns: false } }),
 		shown({ appInstalled: true, route: LAUNCHER, health: { ...HEALTHY, mode: 'full', activeBrowserTurns: 2 } }),
 		shown({ appInstalled: true, route: LAUNCHER, health: HEALTHY }),
 		shown({ appInstalled: true, route: LAUNCHER, health: { ...HEALTHY, mode: 'full' } }),
 	], [
 		['not-installed', 'ChatGPT Web not installed', 'off', 'project-page'],
-		['not-set-up', 'ChatGPT Web models not installed', 'off', 'open-launcher'],
-		['launcher-closed', 'ChatGPT Web launcher not running', 'off', 'open-launcher'],
-		['route-dead', 'ChatGPT Web launcher not running: every Codex run fails', 'warning', 'open-launcher'],
-		['foreign-route', 'ChatGPT Web Codex is routed elsewhere', 'off', 'open-launcher'],
+		['not-set-up', 'ChatGPT Web models not installed', 'off', 'open-panel'],
+		['launcher-closed', 'ChatGPT Web launcher not running', 'off', 'open-panel'],
+		['route-dead', 'ChatGPT Web launcher not running: every Codex run fails', 'warning', 'open-panel'],
+		['foreign-route', 'ChatGPT Web Codex is routed elsewhere', 'off', 'open-panel'],
+		['paused', 'ChatGPT Web bridge paused', 'off', 'open-panel'],
+		['paused', 'ChatGPT Web bridge paused, launcher not running', 'off', 'open-panel'],
 		['draining', 'ChatGPT Web launcher busy with setup or an update', 'off', 'recheck'],
 		['busy', 'ChatGPT Web busy \u00b7 2/5 turns \u00b7 full harness', 'ok', 'recheck'],
 		['ready-browser-only', 'ChatGPT Web ready \u00b7 browser-only', 'ok', undefined],
@@ -169,7 +173,8 @@ test('every state: row text, severity, action and the next step, which is the on
 	assert.match(message({ appInstalled: false, route: ABSENT }), /not installed.*project page/i);
 	assert.match(message({ appInstalled: true, route: ABSENT }), /top-level openai_base_url is absent.*open the Codex Web GPT launcher and run Install models, then restart Codex/i);
 	assert.match(message({ appInstalled: true, launcherRunning: false, route: ABSENT }), /launcher is not running.*run Install models, then restart Codex/i);
-	assert.match(message({ appInstalled: true, route: LAUNCHER, error: 'unreachable' }), /Codex is routed to 127\.0\.0\.1:17841 but the .*launcher is not running.*every Codex run on this machine fails/);
+	assert.match(message({ appInstalled: true, route: LAUNCHER, error: 'unreachable' }), /Codex is routed to 127\.0\.0\.1:17841 but the .*launcher is not running.*every Codex run on this machine fails.*pause the bridge in the ChatGPT Web panel.*without the launcher/);
+	assert.match(message({ appInstalled: true, route: ABSENT, routeInstalled: true }), /bridge is paused.*previous route.*Connect Bridge.*ALL Codex traffic/);
 	assert.match(message({ appInstalled: true, route: LAUNCHER, error: 'not-the-daemon' }), /127\.0\.0\.1:17841.*did not answer as the codex-chatgpt-web daemon.*every Codex run on this machine fails/);
 	assert.match(message({ appInstalled: true, route: FOREIGN }), /not the launcher's http:\/\/127\.0\.0\.1:<port>\/v1 route.*only one program can own it.*run Install models, then restart Codex/i);
 	assert.match(message({ appInstalled: true, route: LAUNCHER, health: { ...HEALTHY, acceptingTurns: false } }), /draining.*setup, update or shutdown in progress.*wait for it to finish/i);
@@ -177,16 +182,20 @@ test('every state: row text, severity, action and the next step, which is the on
 	assert.match(message({ appInstalled: true, route: LAUNCHER, health: HEALTHY }), /browser-only.*no local tools/i);
 });
 
-test('where the launcher cannot be opened, the row leads to the project page', () => {
+test('what is not ready leads to the panel; the window of the launcher is one click further, where macOS can show it', () => {
 	const elsewhere = { canOpenLauncher: false };
-	assert.equal(presentBridge({ appInstalled: undefined, route: ABSENT }, elsewhere).action, 'project-page');
-	assert.equal(presentBridge({ appInstalled: undefined, route: LAUNCHER, error: 'unreachable' }, elsewhere).action, 'project-page');
-	assert.equal(presentBridge({ appInstalled: false, route: LAUNCHER, error: 'unreachable' }).action, 'project-page', 'nor when the app is gone');
-	assert.equal(presentBridge({ appInstalled: undefined, route: LAUNCHER, health: HEALTHY }, elsewhere).action, undefined);
+	const offered = (facts: BridgeFacts, options?: { canOpenLauncher: boolean }) => { const { action, secondary } = presentBridge(facts, options); return [action, secondary]; };
+	assert.deepEqual(offered({ appInstalled: true, route: ABSENT }), ['open-panel', ['show-launcher']]);
+	assert.deepEqual(offered({ appInstalled: true, route: LAUNCHER, error: 'unreachable' }), ['open-panel', ['show-launcher']]);
+	assert.deepEqual(offered({ appInstalled: undefined, route: LAUNCHER, error: 'unreachable' }, elsewhere), ['open-panel', []], 'the bridge is paused from the panel on any platform');
+	assert.deepEqual(offered({ appInstalled: false, route: LAUNCHER, error: 'unreachable' }), ['open-panel', []], 'no window of an app that is gone');
+	assert.deepEqual(offered({ appInstalled: false, route: ABSENT }), ['project-page', []]);
+	assert.deepEqual(offered({ appInstalled: undefined, route: LAUNCHER, health: HEALTHY }, elsewhere), [undefined, []]);
+	assert.deepEqual(offered({ appInstalled: true, route: LAUNCHER, health: { ...HEALTHY, acceptingTurns: false } }), ['recheck', []]);
 });
 
 test('only the two ready states let an agent start', () => {
-	const states: BridgeState[] = ['not-installed', 'not-set-up', 'launcher-closed', 'route-dead', 'foreign-route', 'draining', 'busy', 'ready-browser-only', 'ready-full'];
+	const states: BridgeState[] = ['not-installed', 'not-set-up', 'launcher-closed', 'route-dead', 'foreign-route', 'paused', 'draining', 'busy', 'ready-browser-only', 'ready-full'];
 	assert.deepEqual(states.filter(isReadyState), ['ready-browser-only', 'ready-full']);
 });
 
@@ -197,8 +206,8 @@ test('the row: one line, the whole story in the tooltip, the action as a command
 		detail: 'models not installed',
 		tooltip: presentBridge({ appInstalled: true, launcherRunning: true, route: ABSENT }).message,
 		state: 'off',
-		action: { label: 'Open Launcher', command: 'vibeAgents.chatgptWeb.openLauncher' },
-		secondaryActions: [{ label: 'Re-check', command: 'vibeAgents.chatgptWeb.recheck', icon: 'refresh' }],
+		action: { label: 'Open ChatGPT Web Panel', command: 'vibeAgents.chatgptWeb.openPanel' },
+		secondaryActions: [{ label: 'Show Launcher Window', command: 'vibeAgents.chatgptWeb.showLauncher' }, { label: 'Re-check', command: 'vibeAgents.chatgptWeb.recheck', icon: 'refresh' }],
 	});
 	assert.deepEqual(rowOfBridge(presentBridge({ appInstalled: false, route: ABSENT })).action, { label: 'Project Page', command: 'vibeAgents.chatgptWeb.openProjectPage' });
 

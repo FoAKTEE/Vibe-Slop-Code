@@ -4,7 +4,7 @@
 // asks first; and when it is not offered. Nothing in here runs anything.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OPERATIONS, argvOf, checkPreconditions, confirmationOf, operationOf, resolveOperation, type OperationId } from '../src/model/launcher/operations.ts';
+import { OPERATIONS, argvOf, checkPreconditions, confirmationOf, isAbortable, operationOf, resolveOperation, type OperationId } from '../src/model/launcher/operations.ts';
 import { emptyFacts, type LauncherFacts } from '../src/model/launcher/facts.ts';
 import { runtimeCommandOf, type EngineHealth, type RouteStatus } from '../src/model/launcher/runtime.ts';
 
@@ -88,7 +88,8 @@ test('kinds: probes run by themselves only where that is free of consequence; ha
 		'handoff.removeIntegration': 'Settings > Diagnostics > Remove Codex integration',
 		'handoff.exportLog': 'Activity > Export safe log',
 	});
-	assert.ok(OPERATIONS.every(operation => operation.kind === 'handoff' || operation.hint === undefined));
+	assert.ok(OPERATIONS.every(operation => operation.kind === 'handoff' ? (operation.why ?? '').length > 40 : operation.hint === undefined && operation.why === undefined), 'a hand-off says why the step is there and not here');
+	assert.deepEqual(OPERATIONS.filter(operation => isAbortable(operation.id)).map(operation => operation.id), ['probe.engine', 'probe.codexRoute', 'probe.health', 'probe.runtime', 'probe.routeStatus', 'probe.subagents', 'models.refresh', 'doctor.run'], 'only what reads can be ended half way');
 });
 
 test('confirmation: what changes Codex, the engine or a running turn always asks; what opens the launcher asks when that starts it', () => {
@@ -173,11 +174,12 @@ test('preconditions: an operation that cannot work, or would do harm, is not off
 
 test('resolved: what a view gets for one operation', () => {
 	assert.deepEqual(resolveOperation('bridge.pause', facts()), {
-		id: 'bridge.pause', label: 'Pause Bridge', kind: 'native', enabled: true, disabledReason: undefined, confirm: true, consequence: operationOf('bridge.pause').consequence, hint: undefined,
+		id: 'bridge.pause', label: 'Pause Bridge', kind: 'native', enabled: true, disabledReason: undefined, confirm: true, consequence: operationOf('bridge.pause').consequence, hint: undefined, why: undefined,
 	});
 	assert.deepEqual(resolveOperation('handoff.installModels', facts()), {
 		id: 'handoff.installModels', label: 'Show Launcher Window', kind: 'handoff', enabled: true, disabledReason: undefined, confirm: false, consequence: operationOf('handoff.installModels').consequence,
 		hint: 'Setup > 3 Install into Codex > Install models (Reinstall when it ran before), then fully quit and reopen Codex',
+		why: 'The launcher runs its own setup for this, with a checkpoint it can roll back, and it owns the daemon that has to restart.',
 	});
 	const refused = resolveOperation('engine.quit', facts({ launcherRunning: false }));
 	assert.deepEqual([refused.enabled, refused.disabledReason], [false, 'The launcher is not running.']);

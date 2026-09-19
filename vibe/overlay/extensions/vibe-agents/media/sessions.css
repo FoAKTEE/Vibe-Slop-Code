@@ -444,6 +444,19 @@ button:focus-visible,
 	line-height: 20px;
 }
 
+/* More than one link: below the text, in its column */
+.va-row:has(.va-row-links) {
+	flex-wrap: wrap;
+}
+
+.va-row-links {
+	display: flex;
+	flex-basis: 100%;
+	flex-wrap: wrap;
+	gap: 0 12px;
+	padding-left: 18px;
+}
+
 .va-row .va-icon-row {
 	width: 14px;
 	height: 14px;

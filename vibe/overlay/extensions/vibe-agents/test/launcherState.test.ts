@@ -96,53 +96,68 @@ test('route installed and launcher closed: every Codex run fails, and the way ou
 	const state = view('routeDead');
 	const attention = state.attention!;
 	assert.equal(attention.severity, 'warning');
-	assert.match(attention.detail ?? '', /Codex is routed to 127\.0\.0\.1:17841 but the Codex Web GPT launcher is not running\. Until it is started, every Codex run on this machine fails, not only ChatGPT Web\..*Pause Bridge restores the previous route of Codex without the launcher\.$/);
+	assert.match(attention.detail ?? '', /Codex is routed to 127\.0\.0\.1:17841 but the Codex Web GPT launcher is not running\. Until it is started, every Codex run on this machine fails, not only ChatGPT Web\..*pause the bridge.*restores the previous route of Codex without the launcher\.$/);
 	assert.deepEqual(offered(attention), ['bridge.pause?', 'engine.startHidden?', 'engine.showWindow?'], 'each asks first: the first rewrites the config of Codex, the others start the engine');
-	assert.deepEqual(offered(itemOf(state, 'bridge', 'route')), ['bridge.pause?', 'probe.routeStatus']);
+	assert.deepEqual(offered(itemOf(state, 'bridge', 'route')), ['bridge.pause?']);
 	assert.deepEqual(offered(itemOf(state, 'doctor', 'doctor.summary')), ['doctor.run'], 'the doctor runs without the launcher, and says what is missing');
 	assert.deepEqual(offered(itemOf(state, 'models', 'models.catalog')), [], 'Codex cannot fetch a catalog through a dead route');
-	assert.deepEqual(stepsOf(state), ['done', 'unknown', 'done', 'done', 'unknown']);
+	assert.deepEqual(stepsOf(state), ['done', 'done', 'todo', 'unknown', 'done', 'done', 'done', 'unknown', 'handoff']);
+	assert.deepEqual(state.screens.find(screen => screen.id === 'setup')!.items.filter(item => item.next).map(item => [item.id, offered(item)]), [['step.engine', ['engine.startHidden?']]]);
 });
 
-test('setup: what is done is told from the outside, and what is left is a hand-off with its step', () => {
-	assert.deepEqual(Object.fromEntries((['notInstalled', 'notSetUp', 'launcherClosed', 'readyBrowserOnly', 'readyFull', 'paused', 'restartCodex', 'foreign', 'linux'] as Scenario[]).map(scenario => [scenario, stepsOf(view(scenario))])), {
-		notInstalled: ['todo', 'handoff', 'handoff', 'handoff', 'unknown'],
-		notSetUp: ['done', 'handoff', 'handoff', 'handoff', 'unknown'],
-		launcherClosed: ['done', 'handoff', 'handoff', 'handoff', 'unknown'],
-		readyBrowserOnly: ['done', 'unknown', 'done', 'done', 'done'],
-		readyFull: ['done', 'done', 'done', 'done', 'done'],
-		paused: ['done', 'unknown', 'done', 'done', 'done'],
-		restartCodex: ['done', 'unknown', 'done', 'done', 'todo'],
-		foreign: ['done', 'unknown', 'done', 'done', 'unknown'],
-		linux: ['unknown', 'unknown', 'done', 'done', 'done'],
-	});
+test('setup: a checklist from nothing to ready; every row has its state and at most one next action, and one row is the step to take now', () => {
+	const rows = (scenario: Scenario) => view(scenario).screens.find(screen => screen.id === 'setup')!.items;
+	assert.deepEqual(rows('readyBrowserOnly').map(item => item.id), ['step.launcher', 'step.runtime', 'step.engine', 'step.signIn', 'step.smokeTest', 'step.installModels', 'step.connect', 'step.restartCodex', 'step.fullHarness']);
+	assert.deepEqual(Object.fromEntries((['notInstalled', 'notSetUp', 'launcherClosed', 'readyBrowserOnly', 'readyFull', 'paused', 'restartCodex', 'foreign', 'linux'] as Scenario[]).map(scenario => [scenario, [stepsOf(view(scenario)).join(' '), rows(scenario).filter(item => item.next).map(item => item.id).join()]])), {
+		notInstalled: ['todo todo unknown handoff handoff handoff todo unknown handoff', 'step.launcher'],
+		notSetUp: ['done done done handoff handoff handoff todo unknown handoff', 'step.signIn'],
+		launcherClosed: ['done done todo handoff handoff handoff todo unknown handoff', 'step.engine'],
+		readyBrowserOnly: ['done done done unknown done done done done handoff', ''],
+		readyFull: ['done done done done done done done done done', ''],
+		paused: ['done done done unknown done done todo done handoff', 'step.connect'],
+		restartCodex: ['done done done unknown done done done todo handoff', 'step.restartCodex'],
+		foreign: ['done done done unknown done done todo unknown handoff', 'step.connect'],
+		linux: ['unknown done unknown unknown done done done done handoff', ''],
+	}, 'what only the launcher knows does not hold the list up, and what is optional is never the next step');
+	for (const scenario of Object.keys(SCENARIOS) as Scenario[]) {
+		assert.ok(rows(scenario).every(item => item.operations.length <= 1 && (item.step !== 'done' || item.operations.length === 0)), `${scenario}: one next action, none when done`);
+	}
 
 	const notSetUp = view('notSetUp');
-	assert.deepEqual(itemOf(notSetUp, 'setup', 'step.signIn').operations.map(operation => [operation.id, operation.kind, operation.enabled, operation.confirm, operation.hint]), [['handoff.signIn', 'handoff', true, false, 'Setup > 1 Sign in to ChatGPT > Open sign in (or Browser > Use passkey)']]);
+	assert.deepEqual(itemOf(notSetUp, 'setup', 'step.signIn').operations.map(operation => [operation.id, operation.kind, operation.enabled, operation.confirm, operation.hint, operation.why]), [
+		['handoff.signIn', 'handoff', true, false, 'Setup > 1 Sign in to ChatGPT > Open sign in (or Browser > Use passkey)', 'The ChatGPT page and your sign-in live in the launcher, so this step is taken in its window.'],
+	]);
 	assert.deepEqual(itemOf(notSetUp, 'setup', 'step.smokeTest').operations.map(operation => [operation.id, operation.hint, /ONE real message/.test(operation.consequence)]), [['handoff.smokeTest', 'Setup > 2 Run browser smoke test > Run smoke test', true]]);
 	assert.deepEqual(itemOf(notSetUp, 'setup', 'step.installModels').operations.map(operation => [operation.id, operation.hint, /ALL Codex traffic/.test(operation.consequence)]), [['handoff.installModels', 'Setup > 3 Install into Codex > Install models (Reinstall when it ran before), then fully quit and reopen Codex', true]]);
-	assert.deepEqual(offered(itemOf(notSetUp, 'overview', 'state')), ['handoff.installModels']);
-	assert.deepEqual(offered(itemOf(view('launcherClosed'), 'overview', 'state')), ['handoff.installModels?', 'engine.startHidden?'], 'opening a closed launcher starts the engine: it asks');
+	assert.deepEqual(offered(itemOf(notSetUp, 'overview', 'state')), ['handoff.signIn'], 'the overview offers the step the checklist names');
+	assert.deepEqual(offered(itemOf(view('launcherClosed'), 'overview', 'state')), ['engine.startHidden?'], 'starting the engine asks first');
+	assert.deepEqual(offered(itemOf(view('foreign'), 'overview', 'state')), ['handoff.installModels']);
 
-	assert.match(itemOf(view('readyBrowserOnly'), 'setup', 'step.signIn').text, /known to the launcher only/);
+	// what only the launcher knows is asked natively, by the doctor
+	assert.deepEqual([itemOf(view('readyBrowserOnly'), 'setup', 'step.signIn').text, offered(itemOf(view('readyBrowserOnly'), 'setup', 'step.signIn'))], ['known to the launcher only', ['doctor.run']]);
 	assert.match(itemOf(view('readyFull'), 'setup', 'step.signIn').detail ?? '', /The doctor reached the ChatGPT page of the launcher just now/);
+	const later = deriveViewState({ facts: SCENARIOS.readyFull, activity: [], selectedModel: undefined, now: NOW + 3_600_000 });
+	assert.deepEqual([itemOf(later, 'setup', 'step.signIn').step, offered(itemOf(later, 'setup', 'step.signIn'))], ['unknown', ['doctor.run']], 'a sign-in expires: what the doctor saw an hour ago is not known now');
 	assert.deepEqual([itemOf(view('restartCodex'), 'setup', 'step.restartCodex').text, itemOf(view('restartCodex'), 'overview', 'catalog').text], ['fully quit and reopen Codex', 'restart Codex once']);
-	assert.deepEqual(itemOf(view('readyBrowserOnly'), 'setup', 'step.installModels').operations.map(operation => operation.id), ['handoff.installModels'], 'Reinstall stays reachable');
+	assert.deepEqual([offered(itemOf(view('paused'), 'setup', 'step.connect')), itemOf(view('foreign'), 'setup', 'step.connect').operations.map(operation => operation.enabled)], [['bridge.connect?'], [false]]);
+	assert.deepEqual(itemOf(view('readyBrowserOnly'), 'bridge', 'reinstall').operations.map(operation => operation.id), ['handoff.installModels'], 'Reinstall stays reachable, where the route is');
 
 	const notInstalled = view('notInstalled');
 	assert.deepEqual(offered(itemOf(notInstalled, 'setup', 'step.launcher')), ['link.project']);
 	assert.deepEqual(itemOf(notInstalled, 'setup', 'step.installModels').operations.map(operation => [operation.enabled, operation.disabledReason]), [[false, 'The Codex Web GPT launcher is not installed on this machine.']]);
+	assert.match(itemOf(view('readyBrowserOnly'), 'overview', 'notice').detail ?? '', /not affiliated with or endorsed by OpenAI.*terms of OpenAI and the policy of your workspace apply.*Prompts reach OpenAI even in Temporary Chat/s);
 });
 
 test('bridge and engine: what is offered follows the state', () => {
-	const operations = (scenario: Scenario) => [offered(itemOf(view(scenario), 'bridge', 'route')), offered(itemOf(view(scenario), 'engine', 'process')), offered(itemOf(view(scenario), 'bridge', 'turns'))];
-	assert.deepEqual(operations('readyBrowserOnly'), [['bridge.pause?', 'probe.routeStatus'], ['engine.showWindow', 'engine.quit?'], []]);
-	assert.deepEqual(operations('paused'), [['bridge.connect?', 'probe.routeStatus'], ['engine.showWindow', 'engine.quit?'], []]);
-	assert.deepEqual(operations('pausedClosed'), [['probe.routeStatus'], ['engine.startHidden?', 'engine.showWindow?'], []], 'no daemon: connecting would route Codex to a dead port');
-	assert.deepEqual(operations('busy'), [['bridge.pause?', 'probe.routeStatus'], ['engine.showWindow', 'engine.quit?'], ['turns.cancel?']]);
-	assert.deepEqual(operations('noRuntime'), [[], ['engine.showWindow', 'engine.quit?'], []]);
-	assert.deepEqual(operations('linux'), [['bridge.pause?', 'probe.routeStatus'], [], []], 'the app is started and stopped through macOS only');
-	assert.deepEqual(operations('foreign')[0], ['probe.routeStatus'], 'the route of another program is not written over');
+	const operations = (scenario: Scenario) => [itemOf(view(scenario), 'bridge', 'route'), itemOf(view(scenario), 'engine', 'process'), itemOf(view(scenario), 'bridge', 'turns')].map(item => item.operations.map(operation => `${operation.id}${operation.enabled ? '' : '!'}${operation.confirm ? '?' : ''}`));
+	assert.deepEqual(operations('readyBrowserOnly'), [['bridge.pause?'], ['engine.showWindow', 'engine.quit?'], []], 'one direction at a time, and only what the state of the engine allows');
+	assert.deepEqual(operations('paused'), [['bridge.connect?'], ['engine.showWindow', 'engine.quit?'], []]);
+	assert.deepEqual(operations('pausedClosed'), [['bridge.connect!?'], ['engine.startHidden?', 'engine.showWindow?'], []], 'no daemon: connecting would route Codex to a dead port, and the button says so');
+	assert.deepEqual(operations('busy'), [['bridge.pause?'], ['engine.showWindow', 'engine.quit?'], ['turns.cancel?']]);
+	assert.deepEqual(operations('noRuntime'), [['bridge.pause!?'], ['engine.showWindow', 'engine.quit?'], []]);
+	assert.deepEqual(operations('linux'), [['bridge.pause?'], ['engine.startHidden!?', 'engine.showWindow!?', 'engine.quit!?'], []], 'the app is started and stopped through macOS only');
+	assert.deepEqual(operations('foreign')[0], ['bridge.connect!?'], 'the route of another program is not written over');
+	assert.match(itemOf(view('pausedClosed'), 'bridge', 'route').operations[0].disabledReason ?? '', /a port nobody listens on/);
 
 	assert.deepEqual(offered(itemOf(view('paused'), 'overview', 'state')), ['bridge.connect?']);
 	assert.deepEqual(itemOf(view('pausedClosed'), 'overview', 'state').operations.map(operation => [operation.id, operation.enabled]), [['bridge.connect', false], ['engine.startHidden', true]]);
@@ -176,11 +191,11 @@ test('doctor, full harness, subagents, models: what was asked is shown, what fai
 	const notSetUp = view('notSetUp');
 	assert.deepEqual([itemOf(notSetUp, 'doctor', 'doctor.summary').text, itemOf(notSetUp, 'doctor', 'doctor.check.config').detail], ['needs attention \u00b7 2 min ago', 'Configuration is missing: ~/.codex-chatgpt-web/config.json. Run codex-chatgpt-web setup first.']);
 	assert.deepEqual([itemOf(notSetUp, 'subagents', 'protocol').text, itemOf(notSetUp, 'subagents', 'protocol').severity], ['not read: the command failed (exit code 1): Configuration is missing: ~/.codex-chatgpt-web/config.json. Run codex-chatgpt-web setup first.', 'off']);
-	assert.deepEqual(offered(itemOf(notSetUp, 'subagents', 'protocol')), ['probe.subagents']);
+	assert.deepEqual(offered(itemOf(notSetUp, 'subagents', 'protocol')), []);
 
 	const ready = view('readyBrowserOnly');
 	assert.equal(itemOf(ready, 'subagents', 'protocol').text, 'Compatibility V1 \u00b7 active');
-	assert.deepEqual(offered(itemOf(ready, 'subagents', 'protocol')), ['subagents.useNative?', 'probe.subagents']);
+	assert.deepEqual(offered(itemOf(ready, 'subagents', 'protocol')), ['subagents.useNative?']);
 
 	const broken = view('brokenRuntime');
 	assert.deepEqual([itemOf(broken, 'bridge', 'route').text, itemOf(broken, 'subagents', 'protocol').text, itemOf(broken, 'doctor', 'doctor.summary').text, itemOf(broken, 'models', 'models.catalog').text], [
@@ -212,7 +227,7 @@ test('activity: the newest first, with its time, and the log of the launcher sta
 	assert.deepEqual(screen.items.map(item => [item.id, item.label, item.text, item.detail, item.severity, item.at]), [
 		['activity.2', 'Pause Bridge', 'timeout \u00b7 15000 ms', 'codex-chatgpt-web route disconnect', 'error', NOW - 1000],
 		['activity.1', 'Ask for the Route Status', 'ok \u00b7 40 ms \u00b7 exit code 0', 'codex-chatgpt-web route status \u00b7 route: installed, connected', 'off', NOW - 5000],
-		['activity.launcher', 'Log of the launcher', 'in the launcher', 'The log of the launcher stays in the launcher: it can hold prompts and answers, and Vibe never reads it. Its Export safe log writes a copy without them.', 'off', undefined],
+		['activity.launcher', 'Log of the launcher', 'in the launcher', undefined, 'off', undefined],
 	]);
 	assert.deepEqual(screen.items[2].operations.map(operation => [operation.id, operation.hint]), [['handoff.exportLog', 'Activity > Export safe log']]);
 });

@@ -63,6 +63,8 @@ export interface Operation {
 	timeoutMs: number;
 	/** Hand-offs: where in the launcher the step is. */
 	hint: string | undefined;
+	/** Hand-offs: why the step is there and not here. */
+	why: string | undefined;
 	/** What the confirmation offers to do first. */
 	suggestFirst: OperationId | undefined;
 }
@@ -76,19 +78,23 @@ const ENGINE_PROBES: readonly ProbeId[] = ['probe.engine', 'probe.codexRoute', '
 const ENGINE_SETTLE: readonly number[] = [2000, 6000, 15000];
 
 function probe(id: ProbeId, label: string, cadence: 'interval' | 'open', seam: Seam, timeoutMs: number, preconditions: readonly PreconditionId[] = []): Operation {
-	return { id, label, kind: 'probe', cadence, seam, confirm: 'never', consequence: '', preconditions, reprobe: [], settleMs: [], timeoutMs, hint: undefined, suggestFirst: undefined };
+	return { id, label, kind: 'probe', cadence, seam, confirm: 'never', consequence: '', preconditions, reprobe: [], settleMs: [], timeoutMs, hint: undefined, why: undefined, suggestFirst: undefined };
 }
 
 function native(id: OperationId, label: string, seam: Seam, confirm: Operation['confirm'], consequence: string, preconditions: readonly PreconditionId[], reprobe: readonly ProbeId[], timeoutMs: number, more: Partial<Operation> = {}): Operation {
-	return { id, label, kind: 'native', cadence: 'click', seam, confirm, consequence, preconditions, reprobe, settleMs: [], timeoutMs, hint: undefined, suggestFirst: undefined, ...more };
+	return { id, label, kind: 'native', cadence: 'click', seam, confirm, consequence, preconditions, reprobe, settleMs: [], timeoutMs, hint: undefined, why: undefined, suggestFirst: undefined, ...more };
 }
 
 function link(id: OperationId, label: string, url: string): Operation {
 	return native(id, label, { via: 'external', url }, 'never', '', [], [], 0);
 }
 
-function handoff(id: OperationId, hint: string, consequence: string): Operation {
-	return { id, label: 'Show Launcher Window', kind: 'handoff', cadence: 'click', seam: { via: 'open', hidden: false }, confirm: 'if-starts-engine', consequence, preconditions: ['macos', 'app-installed'], reprobe: ENGINE_PROBES, settleMs: ENGINE_SETTLE, timeoutMs: 10_000, hint, suggestFirst: undefined };
+const WHY_PAGE = 'The ChatGPT page and your sign-in live in the launcher, so this step is taken in its window.';
+const WHY_SETUP = 'The launcher runs its own setup for this, with a checkpoint it can roll back, and it owns the daemon that has to restart.';
+const WHY_LOG = 'The log of the launcher can hold prompts and answers, so it stays in the launcher.';
+
+function handoff(id: OperationId, hint: string, why: string, consequence: string): Operation {
+	return { id, label: 'Show Launcher Window', kind: 'handoff', cadence: 'click', seam: { via: 'open', hidden: false }, confirm: 'if-starts-engine', consequence, preconditions: ['macos', 'app-installed'], reprobe: ENGINE_PROBES, settleMs: ENGINE_SETTLE, timeoutMs: 10_000, hint, why, suggestFirst: undefined };
 }
 
 export const OPERATIONS: readonly Operation[] = Object.freeze([
@@ -122,7 +128,7 @@ export const OPERATIONS: readonly Operation[] = Object.freeze([
 		+ 'A tray icon appears, and ChatGPT stays signed in inside the launcher. The window stays hidden only after the first-run setup of the launcher was completed.',
 		['macos', 'app-installed', 'engine-stopped'], ENGINE_PROBES, 10_000, { settleMs: ENGINE_SETTLE }),
 	native('engine.showWindow', 'Show Launcher Window', { via: 'open', hidden: false }, 'if-starts-engine',
-		'Brings the window of the launcher to the front. Nothing in the launcher changes.',
+		`Brings the window of the launcher to the front; nothing in it changes. When the launcher is not running this starts it, ${ENGINE_STARTED}`,
 		['macos', 'app-installed'], ENGINE_PROBES, 10_000, { settleMs: ENGINE_SETTLE }),
 	native('engine.quit', 'Quit Engine', { via: 'quit' }, 'always',
 		'Quits the launcher the graceful way: it cancels active turns and stops the daemon. It does NOT restore the route of Codex: while the bridge is connected, every Codex run on this machine fails until the launcher is reopened or the bridge is paused. '
@@ -137,33 +143,33 @@ export const OPERATIONS: readonly Operation[] = Object.freeze([
 	link('link.apiKeys', 'Create API Key', 'https://platform.openai.com/settings/organization/api-keys'),
 	link('link.connectors', 'Open ChatGPT Plugins', 'https://chatgpt.com/#settings/Plugins'),
 
-	handoff('handoff.signIn', 'Setup > 1 Sign in to ChatGPT > Open sign in (or Browser > Use passkey)',
+	handoff('handoff.signIn', 'Setup > 1 Sign in to ChatGPT > Open sign in (or Browser > Use passkey)', WHY_PAGE,
 		'You sign in to ChatGPT in the browser inside the launcher. The sign-in stays in the private profile of the launcher; Vibe never sees it.'),
-	handoff('handoff.smokeTest', 'Setup > 2 Run browser smoke test > Run smoke test',
+	handoff('handoff.smokeTest', 'Setup > 2 Run browser smoke test > Run smoke test', WHY_PAGE,
 		'The smoke test of the launcher sends ONE real message on your ChatGPT account (High effort, Temporary Chat) and checks the streamed answer.'),
-	handoff('handoff.installModels', 'Setup > 3 Install into Codex > Install models (Reinstall when it ran before), then fully quit and reopen Codex',
+	handoff('handoff.installModels', 'Setup > 3 Install into Codex > Install models (Reinstall when it ran before), then fully quit and reopen Codex', WHY_SETUP,
 		`Install models of the launcher routes Codex to its daemon: ${ALL_TRAFFIC}, and every Codex run fails while the launcher is closed. It also sets multi_agent=true, multi_agent_v2=false and agents.max_depth>=2 and installs a Codex Interrupt hook. `
 		+ 'Everything is journaled and restored by Remove Codex integration. This is unofficial browser automation of your own ChatGPT account, not affiliated with or endorsed by OpenAI: it can break when the ChatGPT page changes, and it may conflict with OpenAI terms or account policies.'),
-	handoff('handoff.mcpConnect', 'MCP > 2 Connect the local harness > Tunnel ID and API key > Connect harness',
+	handoff('handoff.mcpConnect', 'MCP > 2 Connect the local harness > Tunnel ID and API key > Connect harness', WHY_SETUP,
 		'Full harness gives ChatGPT tool access to the folder of the Codex session: file writes and commands, through MCP. Repository content can carry hostile instructions, so keep the sandbox and the approvals of Codex strict. '
 		+ 'It needs an OpenAI Tunnel, an API key (Tunnels Read+Use, not an Admin key) and the Developer Mode connector "Codex Native2" with Allow all actions. The key is entered in the launcher only.'),
-	handoff('handoff.verifyConnector', 'MCP > 3 Attach the ChatGPT connector > Verify runtime',
+	handoff('handoff.verifyConnector', 'MCP > 3 Attach the ChatGPT connector > Verify runtime', WHY_PAGE,
 		'Verify runtime of the launcher runs its doctor and then looks at the ChatGPT page for the connector. Local checks cannot prove that the connector is attached to this tunnel.'),
-	handoff('handoff.interactionMode', 'Settings > General > ChatGPT interaction (With Automation or Zero Risk)',
+	handoff('handoff.interactionMode', 'Settings > General > ChatGPT interaction (With Automation or Zero Risk)', WHY_SETUP,
 		'With Automation sends prompts and reads the ChatGPT page by itself: browser automation may conflict with OpenAI terms or account policies. Zero Risk never reads or changes ChatGPT: the launcher prepares each prompt and you paste and send it yourself, within 30 s. '
 		+ 'Changing it runs the setup of the launcher again; restart Codex afterwards.'),
-	handoff('handoff.biggerContext', 'Settings > General > Bigger Context (experimental)',
+	handoff('handoff.biggerContext', 'Settings > General > Bigger Context (experimental)', WHY_SETUP,
 		'Bigger Context splits large turns over several ChatGPT messages and triples the context limits. Extra requests may increase rate limits or temporary cooldowns. Restart Codex afterwards.'),
-	handoff('handoff.skillsAsFiles', 'Settings > General > Skills as files (experimental)',
+	handoff('handoff.skillsAsFiles', 'Settings > General > Skills as files (experimental)', WHY_SETUP,
 		'Skills as files uploads the selected Codex skills to ChatGPT as text attachments instead of inline text. It needs With Automation. Restart Codex afterwards.'),
-	handoff('handoff.zeroRiskPro', 'Setup > Install into Codex > Zero Risk model profiles > Pro',
+	handoff('handoff.zeroRiskPro', 'Setup > Install into Codex > Zero Risk model profiles > Pro', WHY_SETUP,
 		'Adds the Pro-sized Zero Risk model to Codex. Zero Risk cannot verify your subscription or what you select in ChatGPT. Restart Codex afterwards.'),
-	handoff('handoff.launchAtLogin', 'Settings > General > Launch at login',
+	handoff('handoff.launchAtLogin', 'Settings > General > Launch at login', 'The login item belongs to the launcher app: only the app can register itself with macOS.',
 		`With Launch at login the launcher starts hidden when you log in to macOS, and with it the daemon and the route: ${ALL_TRAFFIC}.`),
-	handoff('handoff.removeIntegration', 'Settings > Diagnostics > Remove Codex integration',
+	handoff('handoff.removeIntegration', 'Settings > Diagnostics > Remove Codex integration', WHY_SETUP,
 		'Remove Codex integration of the launcher removes the ChatGPT Web models from Codex, restores the previous model route and removes the private runtime of the bridge. The ChatGPT sign-in of the launcher is preserved. Restart Codex once afterwards. '
 		+ 'When the launcher cannot be opened, Pause Bridge restores the route without it.'),
-	handoff('handoff.exportLog', 'Activity > Export safe log',
+	handoff('handoff.exportLog', 'Activity > Export safe log', WHY_LOG,
 		'The log of the launcher stays in the launcher: it can hold prompts and answers, and Vibe never reads it. Its Export safe log writes a copy without them.'),
 ]);
 
@@ -179,6 +185,11 @@ export function operationOf(id: OperationId): Operation {
 
 export function isOperationId(value: unknown): value is OperationId {
 	return typeof value === 'string' && BY_ID.has(value);
+}
+
+/** What only reads can be ended half way. What writes the config of Codex or a journal, or talks to the engine, is left to finish. */
+export function isAbortable(id: OperationId): boolean {
+	return id === 'doctor.run' || id === 'models.refresh' || operationOf(id).kind === 'probe';
 }
 
 /** The program an operation runs and its arguments, exactly. Not set: it runs none (a read, a loopback GET, a link). */
@@ -273,6 +284,7 @@ export interface ResolvedOperation {
 	confirm: boolean;
 	consequence: string;
 	hint: string | undefined;
+	why: string | undefined;
 }
 
 export function resolveOperation(id: OperationId, facts: LauncherFacts): ResolvedOperation {
@@ -280,6 +292,6 @@ export function resolveOperation(id: OperationId, facts: LauncherFacts): Resolve
 	const checked = checkPreconditions(operation, facts);
 	return {
 		id, label: operation.label, kind: operation.kind, enabled: checked.ok, disabledReason: checked.ok ? undefined : checked.reason,
-		confirm: confirmationOf(operation, facts) !== undefined, consequence: operation.consequence, hint: operation.hint,
+		confirm: confirmationOf(operation, facts) !== undefined, consequence: operation.consequence, hint: operation.hint, why: operation.why,
 	};
 }

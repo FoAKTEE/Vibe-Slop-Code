@@ -9,6 +9,7 @@ const outDir = path.join(import.meta.dirname, 'media');
 run({
 	entryPoints: {
 		'sessions': path.join(srcDir, 'webview.ts'),
+		'launcher': path.join(srcDir, 'launcherWebview.ts'),
 	},
 	srcDir: path.join(import.meta.dirname, 'src'),
 	outdir: outDir,

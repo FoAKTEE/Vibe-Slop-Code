@@ -9,15 +9,17 @@
 // Codex on the machine fails. Everything else is quiet, as in the status row, whose words the overview reuses.
 import { CHATGPT_WEB_MODELS, DEFAULT_MODEL_SLUG, LAUNCHER_APP_NAME, labelOfSlug, presentBridge, type BridgeState } from '../chatgptWeb.ts';
 import type { ActivityEntry } from './activity.ts';
-import { activeTurnsOf, bridgeFactsOf, isRouteActive, isRouteInstalled, type LauncherFacts, type ProbeFailed } from './facts.ts';
+import { activeTurnsOf, bridgeFactsOf, daemonPortOf, isRouteActive, isRouteInstalled, type LauncherFacts, type ProbeFailed } from './facts.ts';
 import { operationOf, resolveOperation, type OperationId, type ResolvedOperation } from './operations.ts';
 import type { DoctorCheck } from './runtime.ts';
+import type { ScreenId } from './screens.ts';
+
+export type { ScreenId };
 
 /** `warning` is the one state that asks for attention. `error`: something that was asked for failed. */
 export type Severity = 'ok' | 'info' | 'warning' | 'error' | 'off';
 /** `handoff`: to do, in the launcher. `unknown`: only the launcher knows. */
 export type StepState = 'done' | 'todo' | 'unknown' | 'handoff';
-export type ScreenId = 'overview' | 'setup' | 'models' | 'bridge' | 'engine' | 'subagents' | 'mcp' | 'doctor' | 'activity';
 
 export interface ViewItem {
 	id: string;
@@ -29,6 +31,8 @@ export interface ViewItem {
 	severity: Severity;
 	/** Steps of a checklist only. */
 	step: StepState | undefined;
+	/** The checklist only: the step to take now. */
+	next: boolean;
 	/** Entries of the activity log only: when. */
 	at: number | undefined;
 	operations: ResolvedOperation[];
@@ -42,11 +46,8 @@ export interface ViewScreen {
 	items: ViewItem[];
 }
 
-/** `paused`: models are installed and Codex is on its previous route. Only the journal of the bridge tells, so the status row cannot. */
-export type PanelState = BridgeState | 'paused';
-
 export interface LauncherViewState {
-	bridge: PanelState;
+	bridge: BridgeState;
 	/** As the status row says it. */
 	headline: string;
 	attention: ViewItem | undefined;
@@ -64,13 +65,15 @@ export interface ViewInput {
 const LAUNCHER_ONLY = 'known to the launcher only';
 const MAX_BROWSER_TURNS = 5;
 const MAX_ACTIVITY_ITEMS = 50;
+/** For this long what the doctor saw of the sign-in counts. After that only the launcher knows again. */
+const DOCTOR_FRESH_MS = 15 * 60_000;
 const SEPARATOR = ' \u00b7 ';
 
 export function deriveViewState(input: ViewInput): LauncherViewState {
 	const { facts } = input;
 	const presentation = presentBridge(bridgeFactsOf(facts), { canOpenLauncher: facts.platform === 'darwin' });
 	const item = (id: string, label: string, text: string, severity: Severity, operations: OperationId[] = [], detail?: string, step?: StepState): ViewItem => ({
-		id, label, text, detail, severity, step, at: undefined, operations: operations.map(operation => resolveOperation(operation, facts)),
+		id, label, text, detail, severity, step, next: false, at: undefined, operations: operations.map(operation => resolveOperation(operation, facts)),
 	});
 	const screen = (id: ScreenId, title: string, summary: string, items: ViewItem[]): ViewScreen => ({
 		id, title, summary, items, severity: items.some(candidate => candidate.severity === 'warning') ? 'warning' : items.some(candidate => candidate.severity === 'error') ? 'error' : 'off',
@@ -94,18 +97,18 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 	const health = facts.health;
 	const routed = isRouteActive(facts);
 	const installed = isRouteInstalled(facts);
-	const state: PanelState = (presentation.state === 'not-set-up' || presentation.state === 'launcher-closed') && installed === true ? 'paused' : presentation.state;
-	const stateDetail = state !== 'paused' ? presentation.detail : facts.launcherRunning === false ? 'bridge paused, launcher not running' : 'bridge paused';
-	const stateMessage = state !== 'paused' ? presentation.message : 'The bridge is paused: Codex uses its previous route and does not list the ChatGPT Web models. Connect Bridge routes ALL Codex traffic on this machine to the launcher again.';
+	const state = presentation.state;
 	const route = facts.route;
 	const turns = activeTurnsOf(facts);
+	// No route, no port: nothing was asked, which is not the same as no answer
+	const silent = daemonPortOf(facts) === undefined ? 'not asked: without a route no port is known' : facts.healthError === 'not-the-daemon' ? 'something else answers on its port' : 'does not answer';
 	const doctor = facts.doctor?.kind === 'doctor' ? facts.doctor : undefined;
 	const doctorFailed = facts.doctor?.kind === 'failed' ? facts.doctor : undefined;
 	const checkOf = (id: string): DoctorCheck | undefined => doctor?.checks.find(check => check.id === id);
 
 	//#region Overview
 
-	const stateOperations: Record<PanelState, OperationId[]> = {
+	const stateOperations: Record<BridgeState, OperationId[]> = {
 		'not-installed': ['link.project'],
 		'not-set-up': ['handoff.installModels'],
 		'launcher-closed': ['handoff.installModels', 'engine.startHidden'],
@@ -117,13 +120,11 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 		'ready-browser-only': [],
 		'ready-full': [],
 	};
-	const stateItem = item('state', presentation.label, stateDetail, presentation.severity, stateOperations[state], state === 'route-dead'
-		? `${stateMessage} Pause Bridge restores the previous route of Codex without the launcher.`
-		: stateMessage);
+	const stateItem = item('state', presentation.label, presentation.detail, presentation.severity, stateOperations[state], presentation.message);
 
 	const versions = [facts.runtime.version ? `runtime ${facts.runtime.version}` : undefined, health?.version ? `daemon ${health.version}` : undefined].filter(Boolean).join(SEPARATOR);
 	const versionsDiffer = facts.runtime.version !== undefined && health?.version !== undefined && facts.runtime.version !== health.version;
-	const overview = screen('overview', 'Overview', `${presentation.label} ${stateDetail}`, [
+	const overview = screen('overview', 'Overview', 'Codex, the launcher and its daemon, as they look from here.', [
 		stateItem,
 		item('mode', 'Mode', !health ? 'not known while the daemon does not answer' : health.mode === 'full' ? 'full harness' : health.mode === 'browser-only' ? 'browser-only' : health.mode, 'off', [],
 			!health ? undefined : health.mode === 'full' ? 'ChatGPT calls the tools of Codex in the folder of the session, through MCP.' : 'Prompt in, text out: ChatGPT has no local tools.'),
@@ -133,21 +134,22 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 			!health ? undefined : health.catalogVerified ? `Codex fetched its model catalog through the daemon (${health.catalogRequests} ${health.catalogRequests === 1 ? 'request' : 'requests'} since the daemon started).`
 				: 'Codex did not fetch its model catalog through the daemon yet. Fully quit Codex, including its background process, then reopen it.'),
 		item('versions', 'Versions', versions || 'not known', versionsDiffer ? 'info' : 'off', [], versionsDiffer ? 'The daemon and the installed runtime differ: the launcher updates the runtime when it starts.' : undefined),
-		item('notice', 'Unofficial', 'browser automation of your own ChatGPT account', 'off', ['link.project'],
-			'codex-chatgpt-web is independent software, not affiliated with or endorsed by OpenAI. It automates your ChatGPT web session, can break when the page changes, and must not be used to evade usage limits. The terms and the message allowance of ChatGPT apply. Vibe operates the launcher you installed; it contains none of it.'),
+		item('notice', 'Unofficial', 'browser automation of your own ChatGPT account, not affiliated with OpenAI', 'off', ['link.project'],
+			'codex-chatgpt-web is independent software, not affiliated with or endorsed by OpenAI, and neither is Vibe. It automates your own ChatGPT web session: it can break when the page changes, and it must not be used to get around usage limits. The terms of OpenAI and the policy of your workspace apply, and so does the message allowance of ChatGPT. Prompts reach OpenAI even in Temporary Chat. Vibe operates the launcher you installed; it contains none of it.'),
 	]);
 
 	//#endregion
 
 	//#region Setup
 
-	const browserHost = checkOf('browser-host');
+	const isDoctorFresh = facts.doctorAt !== undefined && input.now - facts.doctorAt <= DOCTOR_FRESH_MS;
+	const browserHost = isDoctorFresh ? checkOf('browser-host') : undefined;
 	const signIn: [StepState, string, string] = browserHost?.status === 'ok' ? ['done', 'signed in', `The doctor reached the ChatGPT page of the launcher ${ago(facts.doctorAt)}.`]
 		: browserHost?.status === 'error' ? ['handoff', 'the launcher browser is not reachable or not signed in', browserHost.detail ?? browserHost.message]
 			: installed ? ['unknown', LAUNCHER_ONLY, 'Install models ran, so ChatGPT was signed in then. Whether it still is, only the launcher knows: Run Doctor asks it.']
-				: ['handoff', 'in the launcher', 'Whether ChatGPT is signed in is known to the launcher only.'];
+				: ['handoff', LAUNCHER_ONLY, 'Whether ChatGPT is signed in is known to the launcher only: without installed models there is nothing to ask from here.'];
 	const smoke: [StepState, string, string] = installed ? ['done', 'passed before Install models', 'Install models of the launcher only runs after a passed smoke test.']
-		: ['handoff', 'in the launcher', 'Whether the smoke test passed is known to the launcher only.'];
+		: ['handoff', LAUNCHER_ONLY, 'Whether the smoke test passed is known to the launcher only. Install models is offered there once it did.'];
 	const install: [StepState, string, string] = installed ? ['done', routed ? 'installed, bridge connected' : 'installed, bridge paused', 'The journal of the bridge holds the route, and the previous route of Codex.']
 		: installed === false ? ['handoff', 'not installed', 'Codex has no launcher route, and the bridge has no journal.']
 			: ['handoff', 'not installed, as far as the config of Codex tells', 'The config of Codex has no launcher route. Whether the bridge is only paused is known once the runtime was asked.'];
@@ -155,13 +157,38 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 		: health.catalogVerified ? ['done', 'Codex sees the models', 'Codex fetched its model catalog through the daemon.']
 			: ['todo', 'fully quit and reopen Codex', 'Fully quit Codex, including its background process, then reopen it to refresh the model picker. Signing out and back in, or only closing the window, is not a restart. Keep the launcher running.'];
 
-	const setup = screen('setup', 'Setup', 'Three checks in the launcher make ChatGPT Web available in the model picker of Codex.', [
+	const runtimeStep: [StepState, string, OperationId[]] = facts.runtime.found ? ['done', facts.runtime.version ?? 'found', []]
+		: ['todo', 'not found', [facts.launcherRunning ? 'probe.runtime' : 'engine.showWindow']];
+	const engineStep: [StepState, string, OperationId[]] = facts.launcherRunning ? ['done', 'running', []]
+		: facts.launcherRunning === false ? ['todo', 'not running', ['engine.startHidden']] : ['unknown', 'not known on this platform', []];
+	const connect: [StepState, string, OperationId[]] = routed ? ['done', health ? 'connected' : 'connected, but the launcher does not answer', []]
+		: facts.configRoute.kind === 'foreign' ? ['todo', 'Codex is routed elsewhere', ['bridge.connect']]
+			: installed ? ['todo', 'paused: Codex uses its previous route', ['bridge.connect']] : ['todo', 'after Install models', []];
+
+	const steps = [
 		item('step.launcher', `Install the ${LAUNCHER_APP_NAME} launcher`, facts.appInstalled === false ? 'not installed' : facts.appInstalled ? 'installed' : 'not known on this platform', 'off',
-			facts.appInstalled === false ? ['link.project'] : [], undefined, facts.appInstalled === false ? 'todo' : facts.appInstalled ? 'done' : 'unknown'),
-		item('step.signIn', '1 Sign in to ChatGPT', signIn[1], 'off', signIn[0] === 'done' ? [] : ['handoff.signIn'], signIn[2], signIn[0]),
-		item('step.smokeTest', '2 Run the browser smoke test', smoke[1], 'off', smoke[0] === 'done' ? [] : ['handoff.smokeTest'], smoke[2], smoke[0]),
-		item('step.installModels', '3 Install models into Codex', install[1], 'off', ['handoff.installModels'], install[2], install[0]),
-		item('step.restartCodex', '4 Restart Codex', restart[1], restart[0] === 'todo' ? 'info' : 'off', [], restart[2], restart[0]),
+			facts.appInstalled === false ? ['link.project'] : [], 'The launcher is the engine: it owns the ChatGPT page, your sign-in and the daemon. Vibe contains none of it.', facts.appInstalled === false ? 'todo' : facts.appInstalled ? 'done' : 'unknown'),
+		item('step.runtime', 'Runtime of the launcher', runtimeStep[1], 'off', runtimeStep[2], 'The launcher installs its runtime when it first starts. Vibe runs a few documented commands of it.', runtimeStep[0]),
+		item('step.engine', 'Engine running', engineStep[1], 'off', engineStep[2], 'Day to day the launcher runs hidden, with a tray icon.', engineStep[0]),
+		item('step.signIn', 'Sign in to ChatGPT', signIn[1], 'off', signIn[0] === 'done' ? [] : signIn[0] === 'unknown' ? ['doctor.run'] : ['handoff.signIn'], signIn[2], signIn[0]),
+		item('step.smokeTest', 'Browser smoke test', smoke[1], 'off', smoke[0] === 'done' ? [] : ['handoff.smokeTest'], smoke[2], smoke[0]),
+		item('step.installModels', 'Install models into Codex', install[1], 'off', install[0] === 'done' ? [] : ['handoff.installModels'], install[2], install[0]),
+		item('step.connect', 'Bridge connected', connect[1], 'off', connect[2], 'Install models connects the bridge. Pausing it gives Codex its previous route back; connecting it routes ALL Codex traffic to the launcher again.', connect[0]),
+		item('step.restartCodex', 'Restart Codex', restart[1], restart[0] === 'todo' ? 'info' : 'off', [], restart[2], restart[0]),
+	];
+	// The step to take now: the first one that is known not to be done. What only the launcher knows does not hold the list up
+	const nextStep = steps.find(step => step.step === 'todo' || step.step === 'handoff');
+	if (nextStep) {
+		nextStep.next = true;
+		// Where nothing is set up yet, the overview offers what the checklist offers: one story
+		if ((state === 'not-set-up' || state === 'launcher-closed') && nextStep.operations.length > 0) {
+			stateItem.operations = nextStep.operations;
+		}
+	}
+	const setup = screen('setup', 'Setup', 'From nothing to ChatGPT Web models in the model picker of Codex. What needs the ChatGPT page is done in the launcher; everything else from here.', [
+		...steps,
+		item('step.fullHarness', 'Optional: full harness (MCP)', health?.mode === 'full' ? 'connected' : 'browser-only: ChatGPT has no local tools', 'off', health?.mode === 'full' ? [] : ['handoff.mcpConnect'],
+			'See the Full Harness screen for what it allows and what it needs.', health?.mode === 'full' ? 'done' : 'handoff'),
 	]);
 
 	//#endregion
@@ -191,11 +218,13 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 				: installed ? 'paused: Codex uses its previous route'
 					: installed === false ? 'not installed' : 'no launcher route in the config of Codex';
 	const bridge = screen('bridge', 'Bridge', 'The route of Codex: one key of its config, owned by one program at a time.', [
-		item('route', 'Route', routeText, state === 'route-dead' ? 'warning' : route?.kind === 'failed' || routeErrors.length > 0 ? 'error' : 'off', ['bridge.connect', 'bridge.pause', 'probe.routeStatus'],
+		// One direction at a time: what is connected can be paused, what is not can be connected, or says why it cannot
+		item('route', 'Route', routeText, state === 'route-dead' ? 'warning' : route?.kind === 'failed' || routeErrors.length > 0 ? 'error' : 'off', [routed || (route?.kind === 'route-status' && route.active && facts.configRoute.kind !== 'foreign') ? 'bridge.pause' : 'bridge.connect'],
 			routeErrors.length > 0 ? `The config of Codex no longer matches the journal of the bridge: ${routeErrors.join('; ')}` : state === 'route-dead' ? stateItem.detail : undefined),
-		item('daemon', 'Daemon', health ? `answers${SEPARATOR}${health.acceptingTurns ? 'accepts turns' : 'draining: setup, update or shutdown in progress'}` : facts.healthError === 'not-the-daemon' ? 'something else answers on its port' : 'does not answer', 'off', []),
-		item('turns', 'Active turns', health ? `${health.activeBrowserTurns}/${MAX_BROWSER_TURNS} browser${SEPARATOR}${health.activeHttpTurns} HTTP` : 'none known', turns > 0 ? 'info' : 'off', ['turns.cancel']),
-		item('remove', 'Remove Codex integration', 'in the launcher', 'off', ['handoff.removeIntegration'], operationOf('handoff.removeIntegration').consequence),
+		item('daemon', 'Daemon', health ? `answers${SEPARATOR}${health.acceptingTurns ? 'accepts turns' : 'draining: setup, update or shutdown in progress'}` : silent, 'off', []),
+		item('turns', 'Active turns', health ? `${health.activeBrowserTurns}/${MAX_BROWSER_TURNS} browser${SEPARATOR}${health.activeHttpTurns} HTTP` : 'none known', turns > 0 ? 'info' : 'off', turns > 0 ? ['turns.cancel'] : []),
+		item('reinstall', 'Reinstall models', 'in the launcher', 'off', ['handoff.installModels'], 'After an update of the launcher, or when the config of Codex no longer matches the journal of the bridge.'),
+		item('remove', 'Remove Codex integration', 'in the launcher', 'off', ['handoff.removeIntegration']),
 	]);
 
 	//#endregion
@@ -204,11 +233,12 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 
 	const engine = screen('engine', 'Engine', `The ${LAUNCHER_APP_NAME} launcher owns the ChatGPT page, the sign-in and the daemon. Vibe starts, shows and quits it.`, [
 		item('app', 'Launcher app', facts.appInstalled === false ? 'not installed' : facts.appInstalled ? 'installed' : 'not known on this platform', 'off', facts.appInstalled === false ? ['link.project'] : []),
-		item('process', 'Process', facts.launcherRunning ? 'running' : facts.launcherRunning === false ? 'not running' : 'not known', state === 'route-dead' ? 'warning' : 'off', ['engine.startHidden', 'engine.showWindow', 'engine.quit'],
+		item('process', 'Process', facts.launcherRunning ? 'running' : facts.launcherRunning === false ? 'not running' : 'not known', state === 'route-dead' ? 'warning' : 'off',
+			facts.launcherRunning ? ['engine.showWindow', 'engine.quit'] : facts.launcherRunning === false ? ['engine.startHidden', 'engine.showWindow'] : ['engine.startHidden', 'engine.showWindow', 'engine.quit'],
 			'A hidden launcher shows a tray icon. It refuses to quit while one of its own operations runs, and then shows its window.'),
 		item('runtime', 'Runtime', facts.runtime.found ? [facts.runtime.version ?? 'version not known', facts.runtime.source === 'setting' ? 'named by the setting' : facts.runtime.source === 'path' ? 'found on PATH' : 'installed by the launcher'].join(SEPARATOR) : 'not found', 'off', [],
 			facts.runtime.found ? undefined : 'The launcher installs its runtime when it first starts. The setting vibeAgents.chatgptWeb.runtimePath names one that is somewhere else.'),
-		item('daemon', 'Daemon', health ? [health.version ?? 'version not known', health.uptimeSeconds === undefined ? undefined : `up ${formatDuration(health.uptimeSeconds)}`].filter(Boolean).join(SEPARATOR) : 'does not answer', 'off'),
+		item('daemon', 'Daemon', health ? [health.version ?? 'version not known', health.uptimeSeconds === undefined ? undefined : `up ${formatDuration(health.uptimeSeconds)}`].filter(Boolean).join(SEPARATOR) : silent, 'off'),
 		item('settings.launchAtLogin', 'Launch at login', LAUNCHER_ONLY, 'off', ['handoff.launchAtLogin']),
 		item('settings.interactionMode', 'ChatGPT interaction', LAUNCHER_ONLY, 'off', ['handoff.interactionMode']),
 		item('settings.biggerContext', 'Bigger Context (experimental)', LAUNCHER_ONLY, 'off', ['handoff.biggerContext']),
@@ -223,7 +253,7 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 	const protocol = facts.subagents;
 	const subagents = screen('subagents', 'Subagents', 'How Codex runs subagents on ChatGPT Web models.', [
 		item('protocol', 'Protocol', protocol?.kind === 'subagents-status' ? `${protocol.protocol === 'compatibility-v1' ? 'Compatibility V1' : protocol.protocol === 'native' ? 'Native' : protocol.protocol}${SEPARATOR}${protocol.active ? 'active' : protocol.installed ? 'installed, bridge paused' : 'not installed'}`
-			: protocol ? `not read: ${failure(protocol)}` : 'not asked yet', protocol?.kind === 'failed' && protocol.reason !== 'exit' ? 'error' : 'off', ['subagents.useCompatibility', 'subagents.useNative', 'probe.subagents'],
+			: protocol ? `not read: ${failure(protocol)}` : 'not asked yet', protocol?.kind === 'failed' && protocol.reason !== 'exit' ? 'error' : 'off', protocol?.kind === 'subagents-status' ? [protocol.protocol === 'native' ? 'subagents.useCompatibility' : 'subagents.useNative'] : [],
 			'Compatibility V1 is the default of the bridge: it sets multi_agent=true, multi_agent_v2=false and agents.max_depth>=2 in the config of Codex. Native is for advanced use.'),
 	]);
 
@@ -233,7 +263,8 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 
 	const harnessChecks = (doctor?.checks ?? []).filter(check => /^(?:tunnel-|connector$|tools$)/.test(check.id));
 	const mcp = screen('mcp', 'Full Harness (MCP)', 'Optional. In full harness mode ChatGPT calls the tools of Codex through an MCP connector over an OpenAI Tunnel.', [
-		item('mcp.mode', 'Mode', !health ? 'not known while the daemon does not answer' : health.mode === 'full' ? 'full harness' : 'browser-only: no local tools', 'off', [], operationOf('handoff.mcpConnect').consequence),
+		item('mcp.mode', 'Mode', !health ? 'not known while the daemon does not answer' : health.mode === 'full' ? 'full harness' : 'browser-only: no local tools', 'off', [],
+			'Full harness gives ChatGPT tool access to the folder of the Codex session: file writes and commands, through MCP. Repository content can carry hostile instructions, so keep the sandbox and the approvals of Codex strict.'),
 		item('mcp.tunnel', '1 Create a tunnel and an API key', 'on platform.openai.com', 'off', ['link.tunnels', 'link.apiKeys'], 'The key needs Tunnels Read+Use and is not an Admin key. It is entered in the launcher only: Vibe never asks for it.', health?.mode === 'full' ? 'done' : 'todo'),
 		item('mcp.connect', '2 Connect the local harness', 'in the launcher', 'off', ['handoff.mcpConnect'], 'The launcher stores the key privately and runs its setup in full mode.', health?.mode === 'full' ? 'done' : 'handoff'),
 		item('mcp.connector', '3 Attach the ChatGPT connector', 'connector "Codex Native2" (Zero Risk: "Codex Zero Risk")', 'off', ['link.connectors', 'handoff.verifyConnector'],
@@ -247,7 +278,7 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 
 	const doctorScreen = screen('doctor', 'Doctor', 'The checks of the runtime. It looks at the live ChatGPT page, so it runs on a click only.', [
 		item('doctor.summary', 'Result', doctor ? `${doctor.ok ? 'healthy' : 'needs attention'}${doctor.partial ? ' (incomplete report)' : ''}${SEPARATOR}${ago(facts.doctorAt)}` : doctorFailed ? `did not run: ${failure(doctorFailed)}` : 'not run yet',
-			doctor ? (doctor.ok ? 'ok' : 'error') : doctorFailed ? 'error' : 'off', ['doctor.run'], operationOf('doctor.run').consequence),
+			doctor ? (doctor.ok ? 'ok' : 'error') : doctorFailed ? 'error' : 'off', ['doctor.run']),
 		...(doctor?.checks ?? []).map(check => item(`doctor.check.${check.id}`, check.id, check.message, check.status === 'ok' ? 'ok' : check.status === 'error' ? 'error' : 'info', [], check.detail)),
 	]);
 
@@ -257,19 +288,20 @@ export function deriveViewState(input: ViewInput): LauncherViewState {
 
 	const activity = screen('activity', 'Activity', 'What Vibe did to the engine. Command lines are shown by their documented words; nothing a program answered is kept.', [
 		...[...input.activity].reverse().slice(0, MAX_ACTIVITY_ITEMS).map((entry): ViewItem => ({
-			...item(`activity.${entry.seq}`, entry.operation === 'unknown' ? 'Unknown' : operationOf(entry.operation).label,
-				[entry.outcome, `${entry.durationMs} ms`, entry.exitCode === undefined ? undefined : `exit code ${entry.exitCode}`].filter(Boolean).join(SEPARATOR),
-				entry.outcome === 'ok' || entry.outcome === 'cancelled' || entry.outcome === 'refused' ? 'off' : 'error', [], [entry.command, entry.note].filter(Boolean).join(SEPARATOR) || undefined),
+			// What the free probes saw turn into another state is one entry: it ran nothing, so it has no duration to tell
+			...item(`activity.${entry.seq}`, entry.command === undefined && entry.note?.startsWith('state: ') ? 'State' : entry.operation === 'unknown' ? 'Unknown' : operationOf(entry.operation).label,
+				entry.command === undefined && entry.note?.startsWith('state: ') ? entry.note.slice(7) : [entry.outcome, `${entry.durationMs} ms`, entry.exitCode === undefined ? undefined : `exit code ${entry.exitCode}`].filter(Boolean).join(SEPARATOR),
+				entry.outcome === 'ok' || entry.outcome === 'cancelled' || entry.outcome === 'refused' ? 'off' : 'error', [], entry.command === undefined ? undefined : [entry.command, entry.note].filter(Boolean).join(SEPARATOR)),
 			at: entry.at,
 		})),
-		item('activity.launcher', 'Log of the launcher', 'in the launcher', 'off', ['handoff.exportLog'], operationOf('handoff.exportLog').consequence),
+		item('activity.launcher', 'Log of the launcher', 'in the launcher', 'off', ['handoff.exportLog']),
 	]);
 
 	//#endregion
 
 	return {
 		bridge: state,
-		headline: `${presentation.label} ${stateDetail}`,
+		headline: `${presentation.label} ${presentation.detail}`,
 		attention: state === 'route-dead' ? stateItem : undefined,
 		screens: [overview, setup, models, bridge, engine, subagents, mcp, doctorScreen, activity],
 	};

@@ -4,9 +4,12 @@ export interface PageInput {
 	/** `webview.cspSource`. */
 	cspSource: string;
 	nonce: string;
-	styleUri: string;
+	/** The style sheet, or the style sheets in the order they apply. */
+	styleUri: string | readonly string[];
 	scriptUri: string;
 	title: string;
+	/** What the script finds on its root element, such as which of two layouts to draw. Lower-case letters only. */
+	data?: Readonly<Record<string, string>>;
 }
 
 /** For text content and double-quoted attribute values (a single quote needs no escape in either). */
@@ -15,7 +18,7 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * The page of the Sessions view. Nothing inline: the style sheet and the script are files of the
+ * The page of a view of this extension. Nothing inline: the style sheet and the script are files of the
  * extension, the script runs by nonce, and the view itself never writes a style attribute.
  */
 export function renderPage(input: PageInput): string {
@@ -32,10 +35,10 @@ export function renderPage(input: PageInput): string {
 		`<meta http-equiv="Content-Security-Policy" content="${escapeHtml(csp)}">`,
 		'<meta name="viewport" content="width=device-width, initial-scale=1.0">',
 		`<title>${escapeHtml(input.title)}</title>`,
-		`<link rel="stylesheet" href="${escapeHtml(input.styleUri)}">`,
+		...(typeof input.styleUri === 'string' ? [input.styleUri] : input.styleUri).map(uri => `<link rel="stylesheet" href="${escapeHtml(uri)}">`),
 		'</head>',
 		'<body>',
-		'<div id="vibe-agents"></div>',
+		`<div id="vibe-agents"${Object.entries(input.data ?? {}).filter(([key]) => /^[a-z]+$/.test(key)).map(([key, value]) => ` data-${key}="${escapeHtml(value)}"`).join('')}></div>`,
 		`<script type="module" nonce="${escapeHtml(input.nonce)}" src="${escapeHtml(input.scriptUri)}"></script>`,
 		'</body>',
 		'</html>',

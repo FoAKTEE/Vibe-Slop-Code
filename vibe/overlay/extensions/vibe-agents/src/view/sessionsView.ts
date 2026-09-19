@@ -245,11 +245,12 @@ class SessionsView {
 			const element = el('div', `va-row va-row-${row.state}`, rowStateGlyph(row.state), text);
 			element.dataset.id = row.id;
 			setAttribute(element, 'title', row.tooltip);
-			if (row.action) {
-				element.append(this.rowButton(row, row.action, undefined));
-			}
-			for (const [index, action] of (row.secondaryActions ?? []).entries()) {
-				element.append(this.rowButton(row, action, index));
+			// Icons stay beside the text. One link does as well; more of them get a line of their own, so that the text keeps its width
+			const buttons = [...(row.action ? [this.rowButton(row, row.action, undefined)] : []), ...(row.secondaryActions ?? []).map((action, index) => this.rowButton(row, action, index))];
+			const links = buttons.filter(button => button.classList.contains('va-link'));
+			element.append(...buttons.filter(button => links.length < 2 || !links.includes(button)));
+			if (links.length >= 2) {
+				element.append(el('div', 'va-row-links', ...links));
 			}
 			return element;
 		}));

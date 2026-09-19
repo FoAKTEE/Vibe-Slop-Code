@@ -21,7 +21,9 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onView:vibeAgents.sessions"
+    "onView:vibeAgents.sessions",
+    "onView:vibeAgents.chatgptWeb",
+    "onWebviewPanel:vibeAgents.chatgptWeb.panel"
   ],
   "capabilities": {
     "virtualWorkspaces": true,
@@ -57,7 +59,15 @@
         {
           "id": "vibeAgents.sessions",
           "type": "webview",
-          "name": "%view.sessions.name%"
+          "name": "%view.sessions.name%",
+          "initialSize": 2
+        },
+        {
+          "id": "vibeAgents.chatgptWeb",
+          "type": "webview",
+          "name": "%view.chatgptWeb.name%",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName",
+          "initialSize": 1
         },
         {
           "id": "vibeAgents.attention",
@@ -97,11 +107,6 @@
         "category": "Agents"
       },
       {
-        "command": "vibeAgents.chatgptWeb.openLauncher",
-        "title": "%command.chatgptWeb.openLauncher%",
-        "category": "Agents"
-      },
-      {
         "command": "vibeAgents.chatgptWeb.openProjectPage",
         "title": "%command.chatgptWeb.openProjectPage%",
         "category": "Agents"
@@ -109,6 +114,53 @@
       {
         "command": "vibeAgents.chatgptWeb.recheck",
         "title": "%command.chatgptWeb.recheck%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.openPanel",
+        "title": "%command.chatgptWeb.openPanel%",
+        "category": "Agents",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.refresh",
+        "title": "%command.chatgptWeb.refresh%",
+        "category": "Agents",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.connectBridge",
+        "title": "%command.chatgptWeb.connectBridge%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.pauseBridge",
+        "title": "%command.chatgptWeb.pauseBridge%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.startEngine",
+        "title": "%command.chatgptWeb.startEngine%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.showLauncher",
+        "title": "%command.chatgptWeb.showLauncher%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.quitEngine",
+        "title": "%command.chatgptWeb.quitEngine%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.runDoctor",
+        "title": "%command.chatgptWeb.runDoctor%",
+        "category": "Agents"
+      },
+      {
+        "command": "vibeAgents.chatgptWeb.cancelTurns",
+        "title": "%command.chatgptWeb.cancelTurns%",
         "category": "Agents"
       }
     ],
@@ -119,16 +171,55 @@
           "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
         },
         {
-          "command": "vibeAgents.chatgptWeb.openLauncher",
-          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
-        },
-        {
           "command": "vibeAgents.chatgptWeb.openProjectPage",
           "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
         },
         {
           "command": "vibeAgents.chatgptWeb.recheck",
           "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.openPanel",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.refresh",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.connectBridge",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.pauseBridge",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.startEngine",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.showLauncher",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.quitEngine",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.runDoctor",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        },
+        {
+          "command": "vibeAgents.chatgptWeb.cancelTurns",
+          "when": "config.vibeAgents.chatgptWeb.enabled && !remoteName"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "vibeAgents.chatgptWeb.openPanel",
+          "when": "view == vibeAgents.chatgptWeb",
+          "group": "navigation@1"
         }
       ]
     },

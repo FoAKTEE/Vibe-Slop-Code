@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ChatGptWebBridge, nodeSystem, probeHealth, type BridgeSystem, type BridgeUi, type ModelPickItem } from '../src/host/chatgptWeb.ts';
-import { COMMANDS } from '../src/model/chatgptWeb.ts';
+import { COMMANDS, type BridgeFacts } from '../src/model/chatgptWeb.ts';
 import { ProfileRegistry, commandLineOf } from '../src/model/profiles.ts';
 import { deadPort, startFakeDaemon, type FakeDaemon } from './fakes/fake-daemon.ts';
 
@@ -26,12 +26,12 @@ interface Harness {
 	registry: ProfileRegistry;
 	configPath: string;
 	writeConfig(text: string | undefined): void;
-	ui: BridgeUi & { remoteName: string | undefined; enabled: boolean; model: string | undefined; picks: ModelPickItem[][]; answer: string | undefined; notifications: { severity: string; message: string; buttons: string[] }[]; choose: string | undefined; opened: string[]; logs: string[] };
+	ui: BridgeUi & { remoteName: string | undefined; enabled: boolean; model: string | undefined; picks: ModelPickItem[][]; answer: string | undefined; notifications: { severity: string; message: string; buttons: string[] }[]; choose: string | undefined; opened: string[]; commands: string[]; logs: string[] };
 	system: BridgeSystem & { executed: string[][]; installed: boolean; running: boolean | undefined };
 	changes: number;
 }
 
-function harness(t: TestContext, options: { platform?: string; remoteName?: string } = {}): Harness {
+function harness(t: TestContext, options: { platform?: string; remoteName?: string; look?: (fresh: boolean) => Promise<BridgeFacts> } = {}): Harness {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vibe-agents-cgw-'));
 	t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
 	const configPath = path.join(dir, 'config.toml');
@@ -45,6 +45,7 @@ function harness(t: TestContext, options: { platform?: string; remoteName?: stri
 		notifications: [],
 		choose: undefined,
 		opened: [],
+		commands: [],
 		logs: [],
 		isEnabled: () => ui.enabled,
 		codexConfigPath: () => configPath,
@@ -59,6 +60,7 @@ function harness(t: TestContext, options: { platform?: string; remoteName?: stri
 			return ui.choose;
 		},
 		openExternal: url => { ui.opened.push(url); },
+		executeCommand: command => { ui.commands.push(command); },
 		log: message => { ui.logs.push(message); },
 	};
 
@@ -90,7 +92,7 @@ function harness(t: TestContext, options: { platform?: string; remoteName?: stri
 		system,
 		changes: 0,
 	};
-	result.bridge = new ChatGptWebBridge(ui, system, () => { result.changes++; });
+	result.bridge = new ChatGptWebBridge(ui, system, () => { result.changes++; }, options.look);
 	t.after(() => result.bridge.dispose());
 	registry.registerProvider(result.bridge);
 	registry.registerStatusRowProvider(result.bridge);
@@ -131,7 +133,7 @@ test('no route: models are not installed, the row offers the launcher; nothing i
 	const shown = await h.bridge.check();
 	assert.equal(shown.state, 'not-set-up');
 	const [row] = await h.registry.statusRows();
-	assert.deepEqual([row.label, row.detail, row.state, row.action], ['ChatGPT Web', 'models not installed', 'off', { label: 'Open Launcher', command: COMMANDS.openLauncher }]);
+	assert.deepEqual([row.label, row.detail, row.state, row.action], ['ChatGPT Web', 'models not installed', 'off', { label: 'Open ChatGPT Web Panel', command: COMMANDS.openPanel }]);
 	assert.deepEqual(h.system.executed, [['/usr/bin/pgrep', '-f', 'Codex Web GPT.app/Contents/MacOS/']], 'only whether the launcher runs was asked');
 	assert.equal(h.changes, 1);
 
@@ -156,7 +158,8 @@ test('a route to a dead port: every Codex run fails, and the row says so', async
 	assert.equal(shown.state, 'route-dead');
 	assert.match(shown.message, new RegExp(`Codex is routed to 127\\.0\\.0\\.1:${port} but .* every Codex run on this machine fails`));
 	const [row] = await h.registry.statusRows();
-	assert.deepEqual([row.detail, row.state, row.action?.label], ['launcher not running: every Codex run fails', 'warning', 'Open Launcher']);
+	assert.deepEqual([row.detail, row.state, row.action?.label], ['launcher not running: every Codex run fails', 'warning', 'Open ChatGPT Web Panel']);
+	assert.deepEqual(row.secondaryActions?.map(action => action.label), ['Show Launcher Window', 'Re-check']);
 	assert.deepEqual(h.system.executed, [], 'the process list is not needed for that');
 });
 
@@ -259,10 +262,10 @@ test('not ready: every state refuses with its next step and its action, and no p
 	};
 
 	assert.deepEqual(await refusal(() => { h.system.installed = false; h.writeConfig('model = "x"\n'); }, /^ChatGPT Web is not installed/), [undefined, 'info', ['Project Page']]);
-	assert.deepEqual(await refusal(() => { h.system.installed = true; }, /^ChatGPT Web is not set up: .* run Install models, then restart Codex\.$/), [undefined, 'info', ['Open Launcher']]);
-	assert.deepEqual(await refusal(() => { h.system.running = false; }, /launcher is not running, and Codex has no launcher route/), [undefined, 'info', ['Open Launcher']]);
-	assert.deepEqual(await refusal(() => { h.writeConfig('openai_base_url = "https://elsewhere.test/v1"\n'); }, /only one program can own it/), [undefined, 'info', ['Open Launcher']]);
-	assert.deepEqual(await refusal(async () => { h.writeConfig(routeTo(await deadPort())); }, /every Codex run on this machine fails, not only ChatGPT Web/), [undefined, 'warning', ['Open Launcher']]);
+	assert.deepEqual(await refusal(() => { h.system.installed = true; }, /^ChatGPT Web is not set up: .* run Install models, then restart Codex\.$/), [undefined, 'info', ['Open ChatGPT Web Panel']]);
+	assert.deepEqual(await refusal(() => { h.system.running = false; }, /launcher is not running, and Codex has no launcher route/), [undefined, 'info', ['Open ChatGPT Web Panel']]);
+	assert.deepEqual(await refusal(() => { h.writeConfig('openai_base_url = "https://elsewhere.test/v1"\n'); }, /only one program can own it/), [undefined, 'info', ['Open ChatGPT Web Panel']]);
+	assert.deepEqual(await refusal(async () => { h.writeConfig(routeTo(await deadPort())); }, /every Codex run on this machine fails, not only ChatGPT Web/), [undefined, 'warning', ['Open ChatGPT Web Panel']]);
 	assert.deepEqual(await refusal(() => { h.writeConfig(routeTo(daemon.port)); daemon.body = { ...HEALTH, accepting_turns: false }; }, /launcher is draining/), [undefined, 'info', ['Re-check']]);
 	assert.deepEqual(await refusal(() => { daemon.body = { ...HEALTH, active_browser_turns: 2 }; }, /^ChatGPT Web is busy: 2 browser turns already active/), [undefined, 'info', ['Re-check']]);
 	assert.deepEqual(h.ui.picks, [], 'a bridge that is not ready is not asked which model');
@@ -282,35 +285,44 @@ test('the action of a refusal runs when it is chosen; a second refusal does not 
 	assert.equal(await h.registry.prepareLaunch(h.registry.get('chatgpt-web')!), undefined);
 	assert.equal(h.ui.notifications.length, 1);
 
-	choose('Open Launcher');
+	choose('Open ChatGPT Web Panel');
 	await settle();
-	assert.deepEqual(h.system.executed, [['/usr/bin/open', '-b', 'dev.codexwebgpt.launcher']]);
+	assert.deepEqual([h.ui.commands, h.system.executed], [[COMMANDS.openPanel], []], 'the panel is a command of the editor: nothing is run from here');
 });
 
 //#endregion
 
 //#region Actions
 
-test('Open Launcher: `open -b dev.codexwebgpt.launcher` on macOS, the project page elsewhere and when that fails', async t => {
+test('not installed: the row leads to the project page; on another platform the panel is offered all the same', async t => {
 	const mac = harness(t);
-	await mac.bridge.openLauncher();
-	assert.deepEqual(mac.system.executed, [['/usr/bin/open', '-b', 'dev.codexwebgpt.launcher']]);
-	assert.deepEqual(mac.ui.opened, []);
-
-	mac.system.execFile = (_file, _args, callback) => callback(Object.assign(new Error('Unable to find application'), { code: 1 }));
-	await mac.bridge.openLauncher();
+	mac.bridge.openProjectPage();
 	assert.deepEqual(mac.ui.opened, ['https://github.com/miuuyy/codex-chatgpt-web']);
 
 	const linux = harness(t, { platform: 'linux' });
-	await linux.bridge.openLauncher();
-	assert.deepEqual([linux.system.executed, linux.ui.opened], [[], ['https://github.com/miuuyy/codex-chatgpt-web']]);
 	linux.writeConfig('model = "x"\n');
 	const shown = await linux.bridge.check();
-	assert.deepEqual([shown.state, shown.action], ['not-set-up', 'project-page'], 'and the row says where it leads');
+	assert.deepEqual([shown.state, shown.action, shown.secondary], ['not-set-up', 'open-panel', []], 'no window of the launcher is offered where macOS cannot show it');
 	assert.deepEqual(linux.system.executed, [], 'no process list is asked there');
+});
 
-	mac.bridge.openProjectPage();
-	assert.equal(mac.ui.opened.length, 2);
+test('with the controller of the panel in the window, the row tells ITS facts, and asks the machine nothing itself', async t => {
+	let facts: BridgeFacts = { appInstalled: true, launcherRunning: true, route: { kind: 'absent' }, routeInstalled: true };
+	let looks = 0;
+	const h = harness(t, { look: async fresh => { looks += fresh ? 1 : 0; return facts; } });
+	h.writeConfig(routeTo(await deadPort()));
+
+	assert.equal((await h.bridge.check()).state, 'paused', 'what only the journal of the bridge tells');
+	const [row] = await h.registry.statusRows();
+	assert.deepEqual([row.detail, row.action?.label, row.secondaryActions?.map(action => action.label)], ['bridge paused', 'Open ChatGPT Web Panel', ['Show Launcher Window', 'Re-check']]);
+	facts = { appInstalled: true, route: { kind: 'launcher', port: 17841 }, health: { mode: 'full', acceptingTurns: true, activeBrowserTurns: 0, version: '5.0.8' } };
+	assert.equal((await h.bridge.check()).state, 'ready-full');
+	assert.deepEqual([looks, h.system.executed], [2, []], 'no file, no process list, no socket of its own');
+
+	// the panel did something: the row follows what is known, without looking again
+	facts = { appInstalled: true, launcherRunning: true, route: { kind: 'absent' }, routeInstalled: true };
+	await h.bridge.factsChanged();
+	assert.deepEqual([(await h.registry.statusRows())[0].detail, looks], ['bridge paused', 2]);
 });
 
 //#endregion

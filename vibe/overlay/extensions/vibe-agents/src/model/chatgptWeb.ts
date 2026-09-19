@@ -28,7 +28,8 @@ const SEPARATOR = ' \u00b7 ';
 
 export const COMMANDS = {
 	selectModel: 'vibeAgents.chatgptWeb.selectModel',
-	openLauncher: 'vibeAgents.chatgptWeb.openLauncher',
+	openPanel: 'vibeAgents.chatgptWeb.openPanel',
+	showLauncher: 'vibeAgents.chatgptWeb.showLauncher',
 	openProjectPage: 'vibeAgents.chatgptWeb.openProjectPage',
 	recheck: 'vibeAgents.chatgptWeb.recheck',
 } as const;
@@ -216,6 +217,8 @@ export type BridgeState =
 	/** Codex is routed to the launcher and the launcher does not answer: every run of Codex fails, not only these. */
 	| 'route-dead'
 	| 'foreign-route'
+	/** Install models ran, and Codex is on its previous route. Only the journal of the bridge tells. */
+	| 'paused'
 	| 'draining'
 	| 'busy'
 	| 'ready-browser-only'
@@ -227,6 +230,8 @@ export interface BridgeFacts {
 	/** Not set: not known, or not asked. */
 	launcherRunning?: boolean;
 	route: LauncherRoute;
+	/** What the journal of the bridge says, where the runtime was asked: Install models ran. */
+	routeInstalled?: boolean;
 	/** The answer of the daemon on the port of the route. */
 	health?: BridgeHealth;
 	/** Why there is none. */
@@ -253,6 +258,9 @@ export function classifyBridge(facts: BridgeFacts): BridgeState {
 	if (facts.route.kind === 'foreign') {
 		return 'foreign-route';
 	}
+	if (facts.routeInstalled === true) {
+		return 'paused';
+	}
 	return facts.launcherRunning === false ? 'launcher-closed' : 'not-set-up';
 }
 
@@ -260,7 +268,7 @@ export function isReadyState(state: BridgeState): boolean {
 	return state === 'ready-browser-only' || state === 'ready-full';
 }
 
-export type BridgeAction = 'open-launcher' | 'project-page' | 'recheck';
+export type BridgeAction = 'open-panel' | 'show-launcher' | 'project-page' | 'recheck';
 
 export interface BridgePresentation {
 	state: BridgeState;
@@ -272,9 +280,12 @@ export interface BridgePresentation {
 	/** The whole story with the next step: the tooltip of the row, and what is said when an agent cannot start. */
 	message: string;
 	action: BridgeAction | undefined;
+	/** What else the row offers, besides asking again. */
+	secondary: BridgeAction[];
 }
 
 const INSTALL_MODELS = `Open the ${LAUNCHER_APP_NAME} launcher and run Install models, then restart Codex.`;
+const PAUSED = 'The bridge is paused: Codex uses its previous route and does not list the ChatGPT Web models. Connect Bridge, in the ChatGPT Web panel, routes ALL Codex traffic on this machine to the launcher again.';
 
 function modeTextOf(health: BridgeHealth | undefined): string {
 	return health?.mode === 'full' ? 'full harness' : 'browser-only';
@@ -284,8 +295,10 @@ export function presentBridge(facts: BridgeFacts, options: { canOpenLauncher: bo
 	const state = classifyBridge(facts);
 	const port = facts.route.kind === 'launcher' ? facts.route.port : 0;
 	const turns = facts.health?.activeBrowserTurns ?? 0;
-	const launcher: BridgeAction = options.canOpenLauncher && facts.appInstalled !== false ? 'open-launcher' : 'project-page';
-	const present = (detail: string, severity: StatusRow['state'], action: BridgeAction | undefined, message: string): BridgePresentation => ({ state, label: 'ChatGPT Web', detail, severity, message, action });
+	// What is not ready is dealt with in the panel. The window of the launcher is one click further, where macOS can show it
+	const launcher: BridgeAction = 'open-panel';
+	const window: BridgeAction[] = options.canOpenLauncher && facts.appInstalled !== false ? ['show-launcher'] : [];
+	const present = (detail: string, severity: StatusRow['state'], action: BridgeAction | undefined, message: string): BridgePresentation => ({ state, label: 'ChatGPT Web', detail, severity, message, action, secondary: action === 'open-panel' ? window : [] });
 
 	switch (state) {
 		case 'not-installed':
@@ -296,10 +309,12 @@ export function presentBridge(facts: BridgeFacts, options: { canOpenLauncher: bo
 			return present('launcher not running', 'off', launcher, `The ${LAUNCHER_APP_NAME} launcher is not running, and Codex has no launcher route. ${INSTALL_MODELS}`);
 		case 'route-dead':
 			return present('launcher not running: every Codex run fails', 'warning', launcher, facts.error === 'not-the-daemon'
-				? `Codex is routed to 127.0.0.1:${port}, which did not answer as the codex-chatgpt-web daemon. Until the ${LAUNCHER_APP_NAME} launcher runs there, every Codex run on this machine fails, not only ChatGPT Web. Open the launcher, or run its Remove Codex integration.`
-				: `Codex is routed to 127.0.0.1:${port} but the ${LAUNCHER_APP_NAME} launcher is not running. Until it is started, every Codex run on this machine fails, not only ChatGPT Web. Open the launcher, or run its Remove Codex integration.`);
+				? `Codex is routed to 127.0.0.1:${port}, which did not answer as the codex-chatgpt-web daemon. Until the ${LAUNCHER_APP_NAME} launcher runs there, every Codex run on this machine fails, not only ChatGPT Web. Start the launcher, or pause the bridge in the ChatGPT Web panel: that restores the previous route of Codex without the launcher.`
+				: `Codex is routed to 127.0.0.1:${port} but the ${LAUNCHER_APP_NAME} launcher is not running. Until it is started, every Codex run on this machine fails, not only ChatGPT Web. Start the launcher, or pause the bridge in the ChatGPT Web panel: that restores the previous route of Codex without the launcher.`);
 		case 'foreign-route':
 			return present('Codex is routed elsewhere', 'off', launcher, `The top-level openai_base_url of the config of Codex is not the launcher's http://127.0.0.1:<port>/v1 route, and only one program can own it. ${INSTALL_MODELS}`);
+		case 'paused':
+			return present(facts.launcherRunning === false ? 'bridge paused, launcher not running' : 'bridge paused', 'off', launcher, PAUSED);
 		case 'draining':
 			return present('launcher busy with setup or an update', 'off', 'recheck', `The ${LAUNCHER_APP_NAME} launcher is draining (setup, update or shutdown in progress). Wait for it to finish, then start again.`);
 		case 'busy':
@@ -312,7 +327,8 @@ export function presentBridge(facts: BridgeFacts, options: { canOpenLauncher: bo
 }
 
 const ACTIONS: Record<BridgeAction, { label: string; command: string }> = {
-	'open-launcher': { label: 'Open Launcher', command: COMMANDS.openLauncher },
+	'open-panel': { label: 'Open ChatGPT Web Panel', command: COMMANDS.openPanel },
+	'show-launcher': { label: 'Show Launcher Window', command: COMMANDS.showLauncher },
 	'project-page': { label: 'Project Page', command: COMMANDS.openProjectPage },
 	'recheck': { label: 'Re-check', command: COMMANDS.recheck },
 };
@@ -330,7 +346,7 @@ export function rowOfBridge(presentation: BridgePresentation): StatusRow {
 		tooltip: presentation.message,
 		state: presentation.severity,
 		action: presentation.action ? actionOf(presentation.action) : undefined,
-		secondaryActions: presentation.action === 'recheck' ? undefined : [{ ...actionOf('recheck'), icon: 'refresh' }],
+		secondaryActions: presentation.action === 'recheck' ? undefined : [...presentation.secondary.map(actionOf), { ...actionOf('recheck'), icon: 'refresh' }],
 	};
 }
 
