@@ -1,0 +1,8 @@
+title: Vibe Slop Code
+description: A patch-level fork of VS Code with a workspace bar, a built-in workflow hypergraph, SSH hosts from ~/.ssh/config, an agents view and a ChatGPT Web panel.
+theme: jekyll-theme-cayman
+url: https://foaktee.github.io
+baseurl: /Vibe-Slop-Code
+repository: FoAKTEE/Vibe-Slop-Code
+exclude:
+  - commit_template.md
