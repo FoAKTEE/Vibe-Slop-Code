@@ -38,7 +38,8 @@ Upstream is never vendored. This repository tracks:
 Built and tested on macOS arm64. Beyond git, curl, python3 and what upstream's `npm ci`
 needs to compile native modules (Xcode command-line tools), nothing is installed by
 hand: `bootstrap.sh` fetches the pinned Node itself. Docker is needed only for
-`build-server.sh`; `make-icon.sh` needs `rsvg-convert`, `magick` and `iconutil`.
+`build-server.sh` and `package-linux.sh`; `make-icon.sh` needs `rsvg-convert`, `magick`
+and `iconutil`.
 
 ## Quickstart
 
@@ -118,6 +119,64 @@ sit side by side, the newest bundle wins (`--vibe-which` lists the rest as `cand
 long name is listed last, after every bundle under the current one: renaming the app
 renames nothing on disk, so the last package keeps working until the next one. To undo:
 `install-cli.sh --uninstall` removes the symlink, and `rm -rf VSCode-*` removes the app.
+
+## Linux build
+
+    scripts/package-linux.sh [--arch x64|arm64] [--package-only] [--print-plan]   # needs Docker running
+    scripts/verify-linux.sh <tarball>
+
+The Linux app is built from the same checkout on the Mac, because everything upstream's
+`vscode-linux-<arch>` task does for the target is either pure JavaScript (the asar, the
+renames, the inlined metadata) or a download (`@vscode/gulp-electron` fetches the target's
+Electron). The one thing that cannot come from this host is `node_modules`, whose natives are
+built here for this Mac's Electron ABI, so the app's production dependencies are
+npm-installed in a linux container (`scripts/linux/`: AlmaLinux 8, i.e. glibc 2.28, with
+gcc-toolset keeping the libstdc++ symbols at GLIBCXX 3.4.25 — the pair upstream builds its own
+linux client against) into `.build/linux/<arch>/app/`, and gulp takes `node_modules` from
+there through `VIBE_DESKTOP_ROOT` — the one `// vibe:` edit in `build/gulpfile.vscode.ts`. The
+checkout's own `node_modules` is never touched. What the built-in extensions drag in from this
+host is dropped from the result afterwards, the way the server build does it.
+
+The result is `.build/dist/VibeSlopCode-linux-<arch>-<version>.tar.gz` plus `.sha256`, one
+top-level directory of the same name, gitignored; `<version>` is the product version, i.e.
+the upstream tag. `--print-plan` prints the steps and runs nothing; `--package-only` runs the
+`-ci` task alone and reuses the `out-vscode/` and `.build/extensions/` of an earlier run. The
+x64 natives are built under emulation, which is the slow part of a first run. `--arch arm64`
+builds the other one — untested, and its container runs natively, so it is the faster of the two.
+
+`verify-linux.sh` unpacks a scratch copy and checks the layout, the rebranded `product.json`
+with its pinned commit, the launcher and the Electron binary, that every native binary is ELF
+for the target with nothing left over from another platform, that none of them needs a glibc
+newer than 2.28 (`$VIBE_LINUX_MAX_GLIBC`), and that the three built-in extensions are there
+with the code and media their build produces. One `ok:` line per check.
+
+## Running it on Linux
+
+Unpack anywhere and start `./bin/vibe` (the CLI, which also serves `--version`) or `./vibe`
+(the app). Nothing is installed; the app writes to `~/.vibe`.
+
+- **System libraries.** The same ones Electron needs everywhere, which upstream lists in
+  `build/linux/debian/dep-lists.ts`: glibc 2.28 or newer, GTK 3, NSS, and the usual X/Wayland
+  and audio libraries (`libgtk-3-0`, `libnss3`, `libasound2`, `libxkbfile1`, `libxkbcommon0`,
+  `libgbm1`, `libatk-bridge2.0-0`, `libcups2`, `libdrm2`, `libxcomposite1`, `libxdamage1`,
+  `libxfixes3`, `libxrandr2`, `libpango-1.0-0`, `libcairo2`, `xdg-utils`, `ca-certificates`).
+  On a headless machine add an X server such as `xvfb`.
+- **`chrome-sandbox`.** Electron's setuid sandbox helper has to be owned by root and setuid,
+  which no tarball can carry: `sudo chown root:root chrome-sandbox && sudo chmod 4755
+  chrome-sandbox` once after unpacking. Without it the app exits with *"The SUID sandbox helper
+  binary was found, but is not configured correctly"*; `--no-sandbox` starts it anyway and is
+  the usual answer inside a container, at the cost of the renderer sandbox. The deb and rpm
+  packages upstream builds set the bit themselves (`resources/linux/rpm/code.spec.template`),
+  so this is a property of the archive, not of the build.
+- **Desktop entry and icon.** Not installed either. For a menu entry, drop a `.desktop` file
+  into `~/.local/share/applications/` with `Exec=<unpacked>/bin/vibe %F` and
+  `Icon=<unpacked>/resources/app/resources/linux/code.png`, and run `update-desktop-database
+  ~/.local/share/applications`. The `vibe://` URL protocol needs the same file with
+  `MimeType=x-scheme-handler/vibe;`.
+- **Unsigned.** Nothing here is signed or notarised — no deb/rpm signature, no repository. The
+  `.sha256` next to the tarball is the only integrity check there is.
+- **Remote hosts.** A packaged Linux client looks for `vibe-server` tarballs in the same places
+  the Mac one does, `~/.vibe/servers/` included; build them with `scripts/build-server.sh`.
 
 ## Icon
 

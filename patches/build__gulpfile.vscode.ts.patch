@@ -1,0 +1,56 @@
+diff --git a/build/gulpfile.vscode.ts b/build/gulpfile.vscode.ts
+index f3669ff6c17ce8e505ae91a3eadf2ac00a745c22..bc4a5ad1cac163cec17eaf71e60514b575f5e5ce 100644
+--- a/build/gulpfile.vscode.ts
++++ b/build/gulpfile.vscode.ts
+@@ -8,6 +8,7 @@ import * as fs from 'fs';
+ import * as path from 'path';
+ import es from 'event-stream';
+ import vfs from 'vinyl-fs';
++import VinylFile from 'vinyl'; // vibe: for the renaming step in packageTask
+ import electron from '@vscode/gulp-electron';
+ import * as util from './lib/util.ts';
+ import { getVersion } from './lib/getVersion.ts';
+@@ -328,20 +329,37 @@ function packageTask(platform: string, arch: string, sourceFolderName: string, d
+ 
+ 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
+ 		const root = path.resolve(path.join(import.meta.dirname, '..'));
+-		const productionDependencies = getProductionDependencies(root);
+-		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
++		// vibe: a cross build takes node_modules from VIBE_DESKTOP_ROOT, a copy of the root's
++		// package.json/package-lock.json that was npm-installed on the target platform
++		const modulesRoot = process.env['VIBE_DESKTOP_ROOT'] ? path.resolve(process.env['VIBE_DESKTOP_ROOT']) : root;
++		const productionDependencies = getProductionDependencies(modulesRoot);
++		const dependenciesSrc = productionDependencies.map(d => path.relative(modulesRoot, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
+ 
+ 		const depFilterPattern = ['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock'];
+ 		if (stripSourceMapsInPackagingTasks) {
+ 			depFilterPattern.push('!**/*.{js,css}.map');
+ 		}
+ 
+-		const cleanedDeps = gulp.src(dependenciesSrc, { base: '.', dot: true })
++		// vibe: read from modulesRoot, named as if read from the checkout. Everything after
++		// this point reads a file's path as one below the process' cwd: gulp-filter matches a
++		// file outside it by its absolute path (where `**` stops at a dot directory), asar
++		// keys an entry by `path.relative(<asar root>, <the path resolved against the cwd>)`,
++		// and the vinyl dest writes the file where its base says. A file left under
++		// modulesRoot is filtered out, keyed as `../../..` and written outside the app.
++		const fromModulesRoot = (globs: string[], allowEmpty = false) => gulp.src(globs, { cwd: modulesRoot, base: modulesRoot, dot: true, allowEmpty })
++			.pipe(es.mapSync<VinylFile, VinylFile>(file => {
++				const relative = file.relative;
++				file.cwd = process.cwd();
++				file.base = process.cwd();
++				file.path = path.join(process.cwd(), relative);
++				return file;
++			}));
++		const cleanedDeps = fromModulesRoot(dependenciesSrc) // vibe: was gulp.src(dependenciesSrc, { base: '.', dot: true })
+ 			.pipe(filter(depFilterPattern))
+ 			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, '.moduleignore')))
+-			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${process.platform}`)));
+-		ensureCopilotPlatformPackage(platform, arch);
+-		const copilotRuntimePrebuilds = gulp.src(getCopilotRuntimePrebuildFiles(platform, arch), { base: '.', dot: true, allowEmpty: true });
++			.pipe(util.cleanNodeModules(path.join(import.meta.dirname, `.moduleignore.${platform}`))); // vibe: the target's list, was process.platform's
++		ensureCopilotPlatformPackage(platform, arch, path.join(modulesRoot, 'node_modules')); // vibe
++		const copilotRuntimePrebuilds = fromModulesRoot(getCopilotRuntimePrebuildFiles(platform, arch), true); // vibe
+ 		const deps = es.merge(cleanedDeps, copilotRuntimePrebuilds)
+ 			.pipe(filter(getCopilotExcludeFilter(platform, arch)))
+ 			.pipe(filter(getCopilotTgrepExcludeFilter(platform, arch)))
